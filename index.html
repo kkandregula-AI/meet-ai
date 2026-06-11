@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0B0D11">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MeetOS">
+<title>MeetOS — AI Meeting Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   MeetOS · Designed & Architected by Krishnamurthy Kandregula
+   Made by Claude · Fable 5 Deep Synthesis Edition
+   ============================================================ */
+:root{
+  --ink:#0B0D11; --panel:#13161C; --panel2:#181C24; --line:#242A35;
+  --text:#E8EAEE; --dim:#8B93A1; --faint:#5A6271;
+  --rec:#FF5C5C; --amber:#FFB454; --fable:#A78BFA; --haiku:#5EEAD4;
+  --radius:14px; --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--ink); color:var(--text);
+  font-family:'Inter',-apple-system,system-ui,sans-serif;
+  font-size:15px; line-height:1.55; overflow:hidden;
+  overscroll-behavior:none;
+}
+h1,h2,h3,.display{font-family:'Archivo',sans-serif;letter-spacing:-0.02em}
+.mono{font-family:'JetBrains Mono',monospace}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
+::placeholder{color:var(--faint)}
+:focus-visible{outline:2px solid var(--fable);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- Shell ---------- */
+#app{height:100%;display:flex;flex-direction:column;max-width:860px;margin:0 auto}
+.view{flex:1;display:none;flex-direction:column;min-height:0}
+.view.active{display:flex}
+
+/* ---------- Lobby ---------- */
+#lobby{overflow-y:auto;padding:28px 20px calc(28px + var(--safe-b))}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.brand-mark{width:40px;height:40px;border-radius:11px;flex-shrink:0}
+.brand h1{font-size:26px;font-weight:800}
+.brand h1 em{font-style:normal;color:var(--fable)}
+.tagline{color:var(--dim);font-size:13.5px;margin-bottom:26px}
+.tagline b{color:var(--haiku);font-weight:600}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.card h2{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.field{margin-bottom:10px}
+.field input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+.field input:focus{border-color:var(--fable);outline:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:10px;
+  padding:11px 16px;font-weight:600;font-size:14px;transition:opacity .15s,transform .1s;width:100%}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-fable{background:var(--fable);color:#15102A}
+.btn-amber{background:var(--amber);color:#2A1B05}
+.btn-ghost{background:var(--panel2);border:1px solid var(--line);color:var(--text)}
+.btn-rec{background:var(--rec);color:#fff}
+.recent-item{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid var(--line);font-size:14px;cursor:pointer}
+.recent-item:last-child{border-bottom:none}
+.recent-item .mono{color:var(--dim);font-size:12px}
+.foot{color:var(--faint);font-size:11.5px;text-align:center;margin-top:22px;line-height:1.7}
+
+/* ---------- Room header ---------- */
+.room-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.room-head .info{flex:1;min-width:0}
+.room-head h2{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.room-head .sub{font-size:11.5px;color:var(--dim)}
+.room-head .sub .mono{color:var(--amber)}
+.rec-pill{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:99px;padding:7px 13px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.rec-dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
+.rec-pill.live .rec-dot{background:var(--rec);animation:pulse 1.4s infinite}
+.rec-pill.live{border-color:rgba(255,92,92,.45);color:var(--rec)}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(255,92,92,.5)}50%{opacity:.6;box-shadow:0 0 0 6px rgba(255,92,92,0)}}
+.icon-btn{width:36px;height:36px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+
+/* ---------- Tabs ---------- */
+.tabs{display:flex;border-bottom:1px solid var(--line);background:var(--panel)}
+.tab{flex:1;padding:11px 4px;text-align:center;font-size:13px;font-weight:600;color:var(--dim);
+  border-bottom:2px solid transparent}
+.tab.active{color:var(--text)}
+.tab.t-transcript.active{border-color:var(--rec)}
+.tab.t-chat.active{border-color:var(--amber)}
+.tab.t-intel.active{border-color:var(--fable)}
+.pane{flex:1;display:none;flex-direction:column;min-height:0;overflow:hidden}
+.pane.active{display:flex}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px}
+
+/* ---------- Transcript ---------- */
+.t-line{margin-bottom:12px}
+.t-line .who{font-size:11px;font-weight:600;color:var(--amber);letter-spacing:.04em;text-transform:uppercase}
+.t-line .ts{color:var(--faint);font-size:10.5px;margin-left:7px}
+.t-line p{font-size:14.5px;color:var(--text);margin-top:2px}
+.t-line.interim p{color:var(--dim);font-style:italic}
+.empty{color:var(--faint);font-size:13.5px;text-align:center;padding:48px 24px;line-height:1.8}
+.empty b{color:var(--dim)}
+
+/* ---------- Chat ---------- */
+.c-msg{margin-bottom:11px;max-width:86%}
+.c-msg .who{font-size:11px;color:var(--dim);margin-bottom:2px}
+.c-msg .bubble{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:9px 12px;font-size:14px;display:inline-block}
+.c-msg.mine{margin-left:auto;text-align:right}
+.c-msg.mine .bubble{background:rgba(167,139,250,.14);border-color:rgba(167,139,250,.35)}
+.composer{display:flex;gap:8px;padding:10px 14px calc(10px + var(--safe-b));border-top:1px solid var(--line);background:var(--panel)}
+.composer input{flex:1;background:var(--ink);border:1px solid var(--line);border-radius:99px;padding:10px 16px}
+.composer button{width:42px;height:42px;border-radius:50%;background:var(--fable);color:#15102A;font-size:17px;flex-shrink:0}
+
+/* ---------- Intelligence ---------- */
+.intel-sec{margin-bottom:22px}
+.intel-sec>h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.tier-tag{font-size:9.5px;font-weight:700;letter-spacing:.08em;border-radius:5px;padding:2px 6px}
+.tier-haiku{background:rgba(94,234,212,.14);color:var(--haiku)}
+.tier-fable{background:rgba(167,139,250,.16);color:var(--fable)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--panel2);border:1px solid rgba(94,234,212,.3);border-radius:99px;padding:7px 13px;font-size:13px}
+.action-row{display:flex;align-items:flex-start;gap:10px;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;padding:11px 13px;margin-bottom:9px}
+.action-row input[type=checkbox]{width:17px;height:17px;margin-top:2px;accent-color:var(--haiku)}
+.action-row .body{flex:1;min-width:0}
+.action-row .task{font-size:14px}
+.action-row .task.done{text-decoration:line-through;color:var(--faint)}
+.action-row .meta{font-size:11.5px;color:var(--dim);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.conf{font-weight:600}
+.conf-high{color:var(--haiku)} .conf-medium{color:var(--amber)} .conf-low{color:var(--rec)}
+.add-action{display:flex;gap:8px;margin-top:4px}
+.add-action input{flex:1;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13.5px}
+.add-action button{padding:0 16px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);font-size:13px;font-weight:600}
+
+/* ---------- Synthesis sheet (signature element) ---------- */
+.synth-launch{background:linear-gradient(135deg,rgba(167,139,250,.12),rgba(167,139,250,.04));
+  border:1px solid rgba(167,139,250,.4);border-radius:var(--radius);padding:16px}
+.synth-launch p{font-size:13px;color:var(--dim);margin:8px 0 12px}
+.token-est{font-size:11.5px;color:var(--faint);margin-top:9px;text-align:center}
+.token-est .mono{color:var(--fable)}
+.sheet{background:#0F1117;border:1px solid var(--line);border-left:3px solid var(--fable);
+  border-radius:12px;padding:18px;margin-top:14px}
+.sheet h4{font-family:'Archivo';font-size:15px;margin-bottom:4px}
+.sheet .stamp{font-size:10.5px;color:var(--faint);margin-bottom:14px}
+.sheet h5{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fable);margin:15px 0 7px}
+.sheet ul{list-style:none}
+.sheet li{font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.sheet li:last-child{border-bottom:none}
+.sheet li .sub{color:var(--dim);font-size:12px;display:block}
+.sheet-tools{display:flex;gap:8px;margin-top:16px}
+.sheet-tools .btn{padding:9px 12px;font-size:13px;width:auto;flex:1}
+.spinner{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.25);
+  border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.cross-list{margin:10px 0}
+.cross-list label{display:flex;align-items:center;gap:9px;padding:8px 4px;font-size:13.5px;border-bottom:1px solid var(--line)}
+.cross-list input{accent-color:var(--fable)}
+.notice{font-size:12.5px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:14px}
+.notice.warn{border-color:rgba(255,180,84,.4);color:var(--amber)}
+
+/* ---------- Toast / modal ---------- */
+#toast{position:fixed;bottom:calc(78px + var(--safe-b));left:50%;transform:translateX(-50%) translateY(8px);
+  background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:9px 18px;font-size:13px;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:90;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.modal-bg{position:fixed;inset:0;background:rgba(5,6,9,.72);display:none;align-items:flex-end;justify-content:center;z-index:80}
+.modal-bg.show{display:flex}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;max-width:860px;
+  padding:20px 18px calc(22px + var(--safe-b));max-height:80vh;overflow-y:auto}
+.modal h3{font-size:16px;margin-bottom:6px}
+.modal p{font-size:13px;color:var(--dim);margin-bottom:14px}
+@media(min-width:700px){.modal-bg{align-items:center}.modal{border-radius:18px;max-width:480px}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= LOBBY ================= -->
+  <div class="view active" id="lobby">
+    <div class="brand">
+      <canvas class="brand-mark" id="logoCanvas" width="80" height="80"></canvas>
+      <h1>Meet<em>OS</em></h1>
+    </div>
+    <div class="tagline">Multi-user meeting intelligence · live transcription is <b>free</b>, Haiku keeps the pulse, <span style="color:var(--fable);font-weight:600">Fable 5</span> does the deep thinking.</div>
+
+    <div class="card">
+      <h2>🟣 Create a room <span style="font-weight:400;color:var(--faint);font-size:12px">(you become moderator)</span></h2>
+      <div class="field"><input id="newName" placeholder="Your name"></div>
+      <div class="field"><input id="newRoom" placeholder="Meeting title (e.g. Sprint Review)"></div>
+      <div class="field"><input id="newPin" inputmode="numeric" maxlength="4" placeholder="4-digit PIN"></div>
+      <button class="btn btn-fable" onclick="createRoom()">Create room</button>
+    </div>
+
+    <div class="card">
+      <h2>🟠 Join a room</h2>
+      <div class="field"><input id="joinName" placeholder="Your name"></div>
+      <div class="field"><input id="joinCode" style="text-transform:uppercase" maxlength="6" placeholder="Room code (e.g. K7M2QX)"></div>
+      <div class="field"><input id="joinPin" inputmode="numeric" maxlength="4" placeholder="4-digit PIN"></div>
+      <button class="btn btn-amber" onclick="joinRoom()">Join room</button>
+    </div>
+
+    <div class="card" id="recentCard" style="display:none">
+      <h2>🕘 Recent rooms</h2>
+      <div id="recentList"></div>
+    </div>
+
+    <button class="btn btn-ghost" onclick="openSettings()">⚙ AI settings · key &amp; Tier 2 model</button>
+
+    <div class="foot">Designed &amp; Architected by Krishnamurthy Kandregula · Made by Claude<br>
+    Tier 0 Web Speech · Tier 1 Claude Haiku · Tier 2 Claude Fable 5</div>
+  </div>
+
+  <!-- ================= ROOM ================= -->
+  <div class="view" id="room">
+    <div class="room-head">
+      <button class="icon-btn" onclick="leaveRoom()" aria-label="Leave room">←</button>
+      <div class="info">
+        <h2 id="roomTitle">Room</h2>
+        <div class="sub">Code <span class="mono" id="roomCode">——</span> · <span id="partCount">1</span> in room · <span id="roleTag">participant</span></div>
+      </div>
+      <button class="rec-pill" id="recPill" onclick="toggleRec()">
+        <span class="rec-dot"></span><span id="recLabel">Record</span>
+      </button>
+      <button class="icon-btn" onclick="openSettings()" aria-label="AI settings">⚙</button>
+      <button class="icon-btn" onclick="shareRoom()" aria-label="Share room">⇪</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab t-transcript active" onclick="showPane('transcript',this)">Transcript</button>
+      <button class="tab t-chat" onclick="showPane('chat',this)">Chat</button>
+      <button class="tab t-intel" onclick="showPane('intel',this)">Intelligence</button>
+    </div>
+
+    <!-- Transcript -->
+    <div class="pane active" id="pane-transcript">
+      <div class="scroll" id="transcriptScroll">
+        <div class="empty" id="transcriptEmpty">No transcript yet.<br><b>Tap Record</b> — speech stays free, no tokens spent.</div>
+        <div id="transcriptList"></div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="pane" id="pane-chat">
+      <div class="scroll" id="chatScroll">
+        <div class="empty" id="chatEmpty">Side-channel chat for the room.<br>Links and notes land here.</div>
+        <div id="chatList"></div>
+      </div>
+      <div class="composer">
+        <input id="chatInput" placeholder="Message the room…" onkeydown="if(event.key==='Enter')sendChat()">
+        <button onclick="sendChat()" aria-label="Send">↑</button>
+      </div>
+    </div>
+
+    <!-- Intelligence -->
+    <div class="pane" id="pane-intel">
+      <div class="scroll">
+
+        <div class="notice" id="aiNotice" style="display:none"></div>
+
+        <div class="intel-sec">
+          <h3>Quick pulse <span class="tier-tag tier-haiku">TIER 1 · HAIKU</span></h3>
+          <div class="chips" id="pulseChips"><span style="color:var(--faint);font-size:13px">Key points appear here — cheap, fast, frequent.</span></div>
+          <button class="btn btn-ghost" style="margin-top:11px" id="pulseBtn" onclick="runQuickPulse()">⚡ Refresh key points</button>
+        </div>
+
+        <div class="intel-sec">
+          <h3>Action items</h3>
+          <div id="actionList"></div>
+          <div class="add-action">
+            <input id="actionInput" placeholder="Add action · use @name to assign">
+            <button onclick="addAction()">Add</button>
+          </div>
+        </div>
+
+        <div class="intel-sec">
+          <h3>Deep synthesis <span class="tier-tag tier-fable" id="tier2Badge">TIER 2 · FABLE 5</span></h3>
+          <div class="synth-launch" id="synthLaunch">
+            <strong style="font-size:14px">Structured minutes, reasoned — not guessed.</strong>
+            <p>Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented.</p>
+            <button class="btn btn-fable" id="synthBtn" onclick="runDeepSynthesis()">◈ Run Deep Synthesis</button>
+            <div class="token-est" id="tokenEst">~<span class="mono">0</span> input tokens</div>
+          </div>
+          <div id="synthResult"></div>
+        </div>
+
+        <div class="intel-sec">
+          <h3>Cross-meeting memory <span class="tier-tag tier-fable" id="tier2BadgeCross">TIER 2 · FABLE 5</span></h3>
+          <div class="notice">Select up to 4 past rooms. Fable 5 finds recurring blockers, slipping action items and decision reversals across meetings.</div>
+          <div class="cross-list" id="crossList"></div>
+          <button class="btn btn-ghost" id="crossBtn" onclick="runCrossSynthesis()">◈ Synthesize across meetings</button>
+          <div id="crossResult"></div>
+        </div>
+
+        <div style="height:30px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status"></div>
+
+<!-- Settings modal -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal">
+    <h3>⚙ AI settings</h3>
+    <p>Your Anthropic API key is stored only in this browser (localStorage) and sent straight to the API or your proxy — never to anyone else.</p>
+    <div class="field"><input id="setKey" type="password" placeholder="sk-ant-… (leave blank to use server key)" autocomplete="off"></div>
+    <h3 style="font-size:14px;margin:14px 0 8px">Tier 2 engine (Deep Synthesis)</h3>
+    <label style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer">
+      <input type="radio" name="tier2pick" value="fable" style="accent-color:var(--fable);margin-top:3px">
+      <span><b style="color:var(--fable)">Fable 5</b> — deepest reasoning, best confidence judgements. Premium tokens.</span>
+    </label>
+    <label style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;cursor:pointer">
+      <input type="radio" name="tier2pick" value="haiku" style="accent-color:var(--haiku);margin-top:3px">
+      <span><b style="color:var(--haiku)">Haiku saver</b> — same structured minutes at a fraction of the cost. Confidence ratings may be less precise.</span>
+    </label>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
+      <button class="btn btn-fable" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign modal -->
+<div class="modal-bg" id="assignModal">
+  <div class="modal">
+    <h3>Assign action</h3>
+    <p id="assignTaskText"></p>
+    <div id="assignPeople"></div>
+    <button class="btn btn-ghost" style="margin-top:12px" onclick="closeAssign()">Cancel</button>
+  </div>
+</div>
+
+<!-- Firebase compat CDN -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+/* ============================================================
+   CONFIG — fill these in before deploying
+   ============================================================ */
+var CONFIG = {
+  // Option A (recommended): Vercel serverless proxy. If the user saves their
+  // own key in Settings (BYOK), it is forwarded via the x-user-key header and
+  // the proxy uses it instead of the server's ANTHROPIC_API_KEY.
+  PROXY_URL: "/api/claude",          // set to "" to use direct browser mode
+  MODEL_FABLE: "claude-fable-5",
+  MODEL_HAIKU: "claude-haiku-4-5-20251001",
+  FIREBASE: {
+    apiKey: "YOUR_FIREBASE_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT"
+  }
+};
+
+/* ============================================================
+   State
+   ============================================================ */
+var db = null, FIREBASE_OK = false;
+var S = {
+  room: null, pin: null, name: null, uid: null, role: "participant",
+  transcript: [], chat: [], actions: {}, participants: {},
+  recOn: false, recognition: null, listeners: []
+};
+
+try {
+  if (CONFIG.FIREBASE.apiKey.indexOf("YOUR_") !== 0) {
+    firebase.initializeApp(CONFIG.FIREBASE);
+    db = firebase.database();
+    FIREBASE_OK = true;
+  }
+} catch (e) { console.warn("Firebase init failed:", e); }
+
+S.uid = localStorage.getItem("meetos_uid") ||
+        ("u" + Math.random().toString(36).slice(2, 9));
+localStorage.setItem("meetos_uid", S.uid);
+
+/* ============================================================
+   Runtime settings — BYOK key + Tier 2 model (user-chosen)
+   ============================================================ */
+var SETTINGS = {
+  userKey: localStorage.getItem("meetos_user_key") || "",
+  tier2Model: localStorage.getItem("meetos_tier2") || CONFIG.MODEL_FABLE
+};
+function tier2ModelId() {
+  return SETTINGS.tier2Model === "haiku" || SETTINGS.tier2Model === CONFIG.MODEL_HAIKU
+    ? CONFIG.MODEL_HAIKU : CONFIG.MODEL_FABLE;
+}
+function tier2Label() {
+  return tier2ModelId() === CONFIG.MODEL_FABLE ? "Fable 5" : "Haiku (saver)";
+}
+function openSettings() {
+  $("setKey").value = SETTINGS.userKey;
+  var radios = document.getElementsByName("tier2pick");
+  for (var i = 0; i < radios.length; i++)
+    radios[i].checked = (radios[i].value === (tier2ModelId() === CONFIG.MODEL_FABLE ? "fable" : "haiku"));
+  $("settingsModal").classList.add("show");
+}
+function saveSettings() {
+  SETTINGS.userKey = $("setKey").value.trim();
+  var radios = document.getElementsByName("tier2pick");
+  for (var i = 0; i < radios.length; i++)
+    if (radios[i].checked) SETTINGS.tier2Model = radios[i].value === "haiku" ? CONFIG.MODEL_HAIKU : CONFIG.MODEL_FABLE;
+  localStorage.setItem("meetos_user_key", SETTINGS.userKey);
+  localStorage.setItem("meetos_tier2", SETTINGS.tier2Model);
+  $("settingsModal").classList.remove("show");
+  refreshTierBadges();
+  updateTokenEstimate();
+  checkAIConfig();
+  toast("Settings saved — Tier 2: " + tier2Label());
+}
+function closeSettings() { $("settingsModal").classList.remove("show"); }
+function refreshTierBadges() {
+  var b = $("tier2Badge"), b2 = $("tier2BadgeCross");
+  var fable = tier2ModelId() === CONFIG.MODEL_FABLE;
+  var txt = "TIER 2 · " + (fable ? "FABLE 5" : "HAIKU SAVER");
+  var cls = "tier-tag " + (fable ? "tier-fable" : "tier-haiku");
+  if (b) { b.textContent = txt; b.className = cls; }
+  if (b2) { b2.textContent = txt; b2.className = cls; }
+  var sb = $("synthBtn");
+  if (sb && !sb.disabled) sb.innerHTML = "◈ Run Deep Synthesis (" + tier2Label() + ")";
+}
+
+/* ============================================================
+   Canvas logo (no roundRect — iOS-safe arc helper)
+   ============================================================ */
+function roundedPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function drawLogo(canvas) {
+  var ctx = canvas.getContext("2d"), s = canvas.width;
+  var g = ctx.createLinearGradient(0, 0, s, s);
+  g.addColorStop(0, "#1A1530"); g.addColorStop(1, "#0E1018");
+  roundedPath(ctx, 0, 0, s, s, s * 0.24);
+  ctx.fillStyle = g; ctx.fill();
+  // waveform bars
+  var bars = [0.35, 0.62, 0.9, 0.55, 0.3], bw = s * 0.07;
+  for (var i = 0; i < bars.length; i++) {
+    var bh = bars[i] * s * 0.52;
+    var bx = s * 0.18 + i * (bw + s * 0.06);
+    roundedPath(ctx, bx, (s - bh) / 2, bw, bh, bw / 2);
+    ctx.fillStyle = i === 2 ? "#A78BFA" : "#5EEAD4";
+    ctx.fill();
+  }
+  // rec dot
+  ctx.beginPath();
+  ctx.arc(s * 0.82, s * 0.2, s * 0.06, 0, Math.PI * 2);
+  ctx.fillStyle = "#FF5C5C"; ctx.fill();
+}
+drawLogo(document.getElementById("logoCanvas"));
+
+/* PWA icon + manifest via data URI (avoids blob CSP issues on iOS) */
+(function () {
+  var c = document.createElement("canvas"); c.width = 512; c.height = 512;
+  drawLogo(c);
+  var icon = c.toDataURL("image/png");
+  var manifest = {
+    name: "MeetOS", short_name: "MeetOS", start_url: ".",
+    display: "standalone", background_color: "#0B0D11", theme_color: "#0B0D11",
+    icons: [{ src: icon, sizes: "512x512", type: "image/png" }]
+  };
+  var link = document.createElement("link");
+  link.rel = "manifest";
+  link.href = "data:application/manifest+json," + encodeURIComponent(JSON.stringify(manifest));
+  document.head.appendChild(link);
+  var apple = document.createElement("link");
+  apple.rel = "apple-touch-icon"; apple.href = icon;
+  document.head.appendChild(apple);
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  }
+})();
+
+/* ============================================================
+   Helpers
+   ============================================================ */
+function $(id) { return document.getElementById(id); }
+function toast(msg) {
+  var t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove("show"); }, 2600);
+}
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+function nowTs() {
+  var d = new Date();
+  return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+}
+function roomCodeGen() {
+  var chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789", out = "";
+  for (var i = 0; i < 6; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+function saveRecent(code, title, pin, role) {
+  var list = JSON.parse(localStorage.getItem("meetos_recent") || "[]")
+    .filter(function (r) { return r.code !== code; });
+  list.unshift({ code: code, title: title, pin: pin, role: role, at: Date.now() });
+  localStorage.setItem("meetos_recent", JSON.stringify(list.slice(0, 8)));
+}
+function renderRecent() {
+  var list = JSON.parse(localStorage.getItem("meetos_recent") || "[]");
+  if (!list.length) { $("recentCard").style.display = "none"; return; }
+  $("recentCard").style.display = "block";
+  $("recentList").innerHTML = list.map(function (r) {
+    return '<div class="recent-item" onclick="quickRejoin(\'' + r.code + '\')">' +
+      '<span>' + esc(r.title) + '</span><span class="mono">' + r.code + '</span></div>';
+  }).join("");
+}
+function quickRejoin(code) {
+  var list = JSON.parse(localStorage.getItem("meetos_recent") || "[]");
+  var r = null;
+  for (var i = 0; i < list.length; i++) if (list[i].code === code) r = list[i];
+  if (!r) return;
+  $("joinCode").value = r.code; $("joinPin").value = r.pin;
+  $("joinName").value = localStorage.getItem("meetos_name") || "";
+  toast("Details filled — tap Join room");
+}
+renderRecent();
+
+/* ============================================================
+   Room lifecycle (Firebase, with local fallback for demo)
+   ============================================================ */
+function requireFirebase() {
+  if (FIREBASE_OK) return true;
+  toast("Firebase not configured — running in local demo mode");
+  return false;
+}
+function createRoom() {
+  var name = $("newName").value.trim(), title = $("newRoom").value.trim(), pin = $("newPin").value.trim();
+  if (!name || !title || !/^\d{4}$/.test(pin)) { toast("Name, title and a 4-digit PIN required"); return; }
+  var code = roomCodeGen();
+  S.role = "moderator";
+  enterRoom(code, title, pin, name);
+  if (FIREBASE_OK) {
+    db.ref("rooms/" + code + "/meta").set({
+      title: title, pin: pin, moderator: S.uid, createdAt: Date.now()
+    });
+  } else { requireFirebase(); }
+}
+function joinRoom() {
+  var name = $("joinName").value.trim(),
+      code = $("joinCode").value.trim().toUpperCase(),
+      pin = $("joinPin").value.trim();
+  if (!name || code.length !== 6 || !/^\d{4}$/.test(pin)) { toast("Check name, code and PIN"); return; }
+  if (!FIREBASE_OK) { requireFirebase(); S.role = "participant"; enterRoom(code, "Local room", pin, name); return; }
+  db.ref("rooms/" + code + "/meta").once("value").then(function (snap) {
+    var meta = snap.val();
+    if (!meta) { toast("Room not found"); return; }
+    if (String(meta.pin) !== pin) { toast("Wrong PIN"); return; }
+    S.role = (meta.moderator === S.uid) ? "moderator" : "participant";
+    enterRoom(code, meta.title, pin, name);
+  });
+}
+function enterRoom(code, title, pin, name) {
+  S.room = code; S.pin = pin; S.name = name;
+  S.transcript = []; S.chat = []; S.actions = {}; S.participants = {};
+  localStorage.setItem("meetos_name", name);
+  saveRecent(code, title, pin, S.role);
+  $("roomTitle").textContent = title;
+  $("roomCode").textContent = code;
+  $("roleTag").textContent = S.role;
+  $("transcriptList").innerHTML = ""; $("chatList").innerHTML = "";
+  $("transcriptEmpty").style.display = "block"; $("chatEmpty").style.display = "block";
+  $("synthResult").innerHTML = ""; $("crossResult").innerHTML = "";
+  $("pulseChips").innerHTML = '<span style="color:var(--faint);font-size:13px">Key points appear here — cheap, fast, frequent.</span>';
+  $("lobby").classList.remove("active"); $("room").classList.add("active");
+  applyRolePermissions();
+  refreshTierBadges();
+  renderCrossList();
+  updateTokenEstimate();
+  checkAIConfig();
+  if (FIREBASE_OK) attachListeners(code);
+  if (FIREBASE_OK) {
+    var pref = db.ref("rooms/" + code + "/participants/" + S.uid);
+    pref.set({ name: name, role: S.role, joinedAt: Date.now() });
+    pref.onDisconnect().remove();
+  }
+}
+function leaveRoom() {
+  stopRec();
+  detachListeners();
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/participants/" + S.uid).remove();
+  S.room = null;
+  $("room").classList.remove("active"); $("lobby").classList.add("active");
+  renderRecent();
+}
+function attachListeners(code) {
+  detachListeners();
+  var base = "rooms/" + code;
+  var tRef = db.ref(base + "/transcript");
+  tRef.on("child_added", function (snap) { onTranscriptLine(snap.val()); });
+  S.listeners.push(tRef);
+  var cRef = db.ref(base + "/chat");
+  cRef.on("child_added", function (snap) { onChatMsg(snap.val()); });
+  S.listeners.push(cRef);
+  var aRef = db.ref(base + "/actions");
+  aRef.on("value", function (snap) { S.actions = snap.val() || {}; renderActions(); });
+  S.listeners.push(aRef);
+  var pRef = db.ref(base + "/participants");
+  pRef.on("value", function (snap) {
+    S.participants = snap.val() || {};
+    $("partCount").textContent = Object.keys(S.participants).length || 1;
+  });
+  S.listeners.push(pRef);
+  var sRef = db.ref(base + "/synthesis");
+  sRef.limitToLast(1).on("child_added", function (snap) {
+    var v = snap.val();
+    if (v && v.json) renderSynthesisSheet(JSON.parse(v.json), v.by, v.at, "synthResult", v.model);
+  });
+  S.listeners.push(sRef);
+}
+function detachListeners() {
+  for (var i = 0; i < S.listeners.length; i++) S.listeners[i].off();
+  S.listeners = [];
+}
+function applyRolePermissions() {
+  var isMod = S.role === "moderator";
+  $("synthBtn").disabled = !isMod;
+  $("crossBtn").disabled = !isMod;
+  $("synthLaunch").querySelector("p").innerHTML = isMod
+    ? "Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented."
+    : "Only the room moderator can run Deep Synthesis (token cost control). Results appear here for everyone.";
+}
+function shareRoom() {
+  var text = "Join my MeetOS room \"" + $("roomTitle").textContent + "\" — code " +
+             S.room + ", PIN " + S.pin + " · " + location.href;
+  if (navigator.share) navigator.share({ title: "MeetOS room", text: text }).catch(function(){});
+  else { copyText(text); toast("Invite copied"); }
+}
+function copyText(t) {
+  var ta = document.createElement("textarea");
+  ta.value = t; document.body.appendChild(ta);
+  ta.select(); try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta);
+}
+
+/* ============================================================
+   Tabs
+   ============================================================ */
+function showPane(name, el) {
+  var panes = document.querySelectorAll(".pane"), tabs = document.querySelectorAll(".tab");
+  for (var i = 0; i < panes.length; i++) panes[i].classList.remove("active");
+  for (var j = 0; j < tabs.length; j++) tabs[j].classList.remove("active");
+  $("pane-" + name).classList.add("active");
+  el.classList.add("active");
+}
+
+/* ============================================================
+   Tier 0 — Live transcription (Web Speech API, free)
+   ============================================================ */
+function toggleRec() { S.recOn ? stopRec() : startRec(); }
+function startRec() {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast("Speech recognition not supported in this browser"); return; }
+  var rec = new SR();
+  rec.continuous = true; rec.interimResults = true; rec.lang = "en-IN";
+  rec.onresult = function (e) {
+    var interim = "";
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      var txt = e.results[i][0].transcript;
+      if (e.results[i].isFinal) pushTranscript(txt.trim());
+      else interim += txt;
+    }
+    showInterim(interim);
+  };
+  rec.onend = function () { if (S.recOn) { try { rec.start(); } catch (e) {} } };
+  rec.onerror = function (e) {
+    if (e.error === "not-allowed") { toast("Microphone permission denied"); stopRec(); }
+  };
+  try { rec.start(); } catch (e) { toast("Could not start microphone"); return; }
+  S.recognition = rec; S.recOn = true;
+  $("recPill").classList.add("live"); $("recLabel").textContent = "Live";
+}
+function stopRec() {
+  S.recOn = false;
+  if (S.recognition) { try { S.recognition.stop(); } catch (e) {} S.recognition = null; }
+  showInterim("");
+  $("recPill").classList.remove("live"); $("recLabel").textContent = "Record";
+}
+function pushTranscript(text) {
+  if (!text) return;
+  var line = { speaker: S.name, text: text, ts: nowTs(), at: Date.now() };
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/transcript").push(line);
+  else onTranscriptLine(line);
+}
+function onTranscriptLine(line) {
+  if (!line) return;
+  S.transcript.push(line);
+  $("transcriptEmpty").style.display = "none";
+  var div = document.createElement("div");
+  div.className = "t-line";
+  div.innerHTML = '<span class="who">' + esc(line.speaker) + '</span>' +
+    '<span class="ts mono">' + esc(line.ts) + '</span><p>' + esc(line.text) + '</p>';
+  $("transcriptList").appendChild(div);
+  $("transcriptScroll").scrollTop = $("transcriptScroll").scrollHeight;
+  updateTokenEstimate();
+}
+function showInterim(text) {
+  var el = $("interimLine");
+  if (!text) { if (el) el.remove(); return; }
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "interimLine"; el.className = "t-line interim";
+    $("transcriptList").appendChild(el);
+  }
+  el.innerHTML = '<span class="who">' + esc(S.name) + '</span><p>' + esc(text) + '…</p>';
+  $("transcriptScroll").scrollTop = $("transcriptScroll").scrollHeight;
+}
+
+/* ============================================================
+   Chat
+   ============================================================ */
+function sendChat() {
+  var input = $("chatInput"), text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  var msg = { who: S.name, uid: S.uid, text: text, ts: nowTs(), at: Date.now() };
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/chat").push(msg);
+  else onChatMsg(msg);
+}
+function onChatMsg(msg) {
+  if (!msg) return;
+  S.chat.push(msg);
+  $("chatEmpty").style.display = "none";
+  var div = document.createElement("div");
+  div.className = "c-msg" + (msg.uid === S.uid ? " mine" : "");
+  div.innerHTML = '<div class="who">' + esc(msg.who) + ' · ' + esc(msg.ts) + '</div>' +
+    '<div class="bubble">' + esc(msg.text) + '</div>';
+  $("chatList").appendChild(div);
+  $("chatScroll").scrollTop = $("chatScroll").scrollHeight;
+}
+
+/* ============================================================
+   Action items
+   ============================================================ */
+function addAction() {
+  var input = $("actionInput"), text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  var owner = "";
+  var m = text.match(/@(\w+)/);
+  if (m) { owner = m[1]; text = text.replace(/@\w+/, "").trim(); }
+  writeAction({ task: text, owner: owner, confidence: "high", source: "manual",
+                done: false, at: Date.now() });
+}
+function writeAction(a) {
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/actions").push(a);
+  else { S.actions["k" + Date.now() + Math.random()] = a; renderActions(); }
+}
+function toggleAction(key) {
+  var a = S.actions[key]; if (!a) return;
+  a.done = !a.done;
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/actions/" + key + "/done").set(a.done);
+  renderActions();
+}
+var assignKey = null;
+function openAssign(key) {
+  assignKey = key;
+  var a = S.actions[key]; if (!a) return;
+  $("assignTaskText").textContent = a.task;
+  var names = {};
+  names[S.name] = true;
+  for (var uid in S.participants) names[S.participants[uid].name] = true;
+  var html = "";
+  for (var n in names) {
+    html += '<button class="btn btn-ghost" style="margin-bottom:8px" onclick="assignTo(\'' +
+      esc(n).replace(/'/g, "\\'") + '\')">' + esc(n) + '</button>';
+  }
+  $("assignPeople").innerHTML = html;
+  $("assignModal").classList.add("show");
+}
+function assignTo(name) {
+  if (assignKey && S.actions[assignKey]) {
+    if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/actions/" + assignKey + "/owner").set(name);
+    else { S.actions[assignKey].owner = name; renderActions(); }
+  }
+  closeAssign();
+}
+function closeAssign() { $("assignModal").classList.remove("show"); assignKey = null; }
+function renderActions() {
+  var keys = Object.keys(S.actions || {});
+  if (!keys.length) { $("actionList").innerHTML = '<div style="color:var(--faint);font-size:13px;padding:4px 2px">Nothing assigned yet. Add manually or run Deep Synthesis.</div>'; return; }
+  var html = "";
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i], a = S.actions[k];
+    html += '<div class="action-row">' +
+      '<input type="checkbox" ' + (a.done ? "checked" : "") + ' onchange="toggleAction(\'' + k + '\')">' +
+      '<div class="body"><div class="task' + (a.done ? " done" : "") + '">' + esc(a.task) + '</div>' +
+      '<div class="meta">' +
+      '<span onclick="openAssign(\'' + k + '\')" style="cursor:pointer">👤 ' + (a.owner ? esc(a.owner) : "assign") + '</span>' +
+      (a.deadline ? '<span>📅 ' + esc(a.deadline) + '</span>' : "") +
+      '<span class="conf conf-' + esc(a.confidence || "high") + '">● ' + esc(a.confidence || "high") + '</span>' +
+      '<span style="color:var(--faint)">' + (a.source === "fable" ? "◈ Fable 5" : "manual") + '</span>' +
+      '</div></div></div>';
+  }
+  $("actionList").innerHTML = html;
+}
+
+/* ============================================================
+   AI layer — shared caller (proxy first, direct fallback)
+   ============================================================ */
+function checkAIConfig() {
+  var n = $("aiNotice");
+  if (!CONFIG.PROXY_URL && !SETTINGS.userKey) {
+    n.style.display = "block"; n.className = "notice warn";
+    n.innerHTML = "AI features need a key. Tap ⚙ Settings and paste your Anthropic API key (stored only on this device).";
+  } else if (CONFIG.PROXY_URL && SETTINGS.userKey) {
+    n.style.display = "block"; n.className = "notice";
+    n.textContent = "Using your personal API key (BYOK) — tokens billed to your account.";
+  } else { n.style.display = "none"; }
+}
+function callClaude(model, userPrompt, maxTokens) {
+  var body = {
+    model: model,
+    max_tokens: maxTokens || 2000,
+    messages: [{ role: "user", content: userPrompt }]
+  };
+  var url, headers;
+  if (CONFIG.PROXY_URL) {
+    url = CONFIG.PROXY_URL;
+    headers = { "Content-Type": "application/json" };
+    if (SETTINGS.userKey) headers["x-user-key"] = SETTINGS.userKey; // BYOK
+  } else {
+    if (!SETTINGS.userKey) return Promise.reject(new Error("No API key — add one in ⚙ Settings"));
+    url = "https://api.anthropic.com/v1/messages";
+    headers = {
+      "Content-Type": "application/json",
+      "x-api-key": SETTINGS.userKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    };
+  }
+  return fetch(url, { method: "POST", headers: headers, body: JSON.stringify(body) })
+    .then(function (r) {
+      if (!r.ok) return r.text().then(function (t) { throw new Error("API " + r.status + ": " + t.slice(0, 140)); });
+      return r.json();
+    })
+    .then(function (data) {
+      var out = "";
+      (data.content || []).forEach(function (b) { if (b.type === "text") out += b.text; });
+      return out;
+    });
+}
+function parseJSONLoose(text) {
+  var clean = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  var start = clean.indexOf("{"), startA = clean.indexOf("[");
+  if (startA > -1 && (startA < start || start === -1)) start = startA;
+  if (start > 0) clean = clean.slice(start);
+  return JSON.parse(clean);
+}
+function transcriptText(lines) {
+  return lines.map(function (l) { return "[" + l.ts + "] " + l.speaker + ": " + l.text; }).join("\n");
+}
+function estimateTokens(str) { return Math.ceil(str.length / 4); }
+function updateTokenEstimate() {
+  var full = transcriptText(S.transcript) + "\n" +
+             S.chat.map(function (c) { return c.who + ": " + c.text; }).join("\n");
+  $("tokenEst").innerHTML = "~<span class='mono'>" + estimateTokens(full).toLocaleString() +
+    "</span> input tokens · " + tier2Label() + " fires once, on demand";
+}
+
+/* ============================================================
+   Tier 1 — Quick Pulse (Haiku)
+   ============================================================ */
+function runQuickPulse() {
+  if (!S.transcript.length) { toast("Nothing to summarize yet"); return; }
+  var recent = transcriptText(S.transcript).slice(-3000);
+  var prompt = "You summarize live meetings. From this recent transcript window, extract 3-5 key points as short phrases (max 8 words each). Respond ONLY with a JSON array of strings, no markdown, no preamble.\n\nTRANSCRIPT:\n" + recent;
+  var btn = $("pulseBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Reading…';
+  callClaude(CONFIG.MODEL_HAIKU, prompt, 400)
+    .then(function (text) {
+      var points = parseJSONLoose(text);
+      $("pulseChips").innerHTML = points.map(function (p) {
+        return '<span class="chip">' + esc(p) + '</span>';
+      }).join("");
+    })
+    .catch(function (e) { toast("Pulse failed: " + e.message); })
+    .then(function () { btn.disabled = false; btn.innerHTML = "⚡ Refresh key points"; });
+}
+
+/* ============================================================
+   Tier 2 — Deep Synthesis (Fable 5)
+   ============================================================ */
+function buildSynthesisPrompt(tText, cText, names) {
+  return "You are the meeting intelligence engine of MeetOS. Analyze the full meeting below and produce structured minutes.\n\n" +
+"HONESTY RULES (critical):\n" +
+"- Only report decisions and action items actually supported by the transcript.\n" +
+"- For each action item set confidence: \"high\" only if owner AND task are explicit; \"medium\" if task is clear but owner/deadline implied; \"low\" if ownership is ambiguous — in that case set owner to \"unassigned\" and explain the ambiguity in rationale. NEVER invent an owner or deadline.\n" +
+"- If the transcript is too thin to support a section, return an empty array for it.\n\n" +
+"PARTICIPANTS: " + names.join(", ") + "\n\n" +
+"TRANSCRIPT:\n" + tText + "\n\n" +
+"SIDE CHAT:\n" + (cText || "(none)") + "\n\n" +
+"Respond ONLY with valid JSON, no markdown fences, in exactly this shape:\n" +
+'{"executive_summary":["line1","line2","line3"],' +
+'"decisions":[{"decision":"...","decided_by":"..."}],' +
+'"action_items":[{"task":"...","owner":"...","deadline":"... or null","confidence":"high|medium|low","rationale":"..."}],' +
+'"open_questions":["..."],' +
+'"tensions":[{"topic":"...","parties":"...","status":"unresolved|parked|resolved"}]}';
+}
+function runDeepSynthesis() {
+  if (S.role !== "moderator") { toast("Moderator only"); return; }
+  if (S.transcript.length < 3) { toast("Transcript too short for deep synthesis"); return; }
+  var tText = transcriptText(S.transcript);
+  var cText = S.chat.map(function (c) { return c.who + ": " + c.text; }).join("\n");
+  var names = [S.name];
+  for (var uid in S.participants) {
+    if (names.indexOf(S.participants[uid].name) === -1) names.push(S.participants[uid].name);
+  }
+  var prompt = buildSynthesisPrompt(tText, cText, names);
+  var btn = $("synthBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> ' + tier2Label() + ' is reasoning…';
+  callClaude(tier2ModelId(), prompt, 4000)
+    .then(function (text) {
+      var data = parseJSONLoose(text);
+      var record = { json: JSON.stringify(data), by: S.name, at: Date.now(), model: tier2ModelId() };
+      if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/synthesis").push(record);
+      else renderSynthesisSheet(data, S.name, Date.now(), "synthResult", tier2ModelId());
+      // promote AI action items into the shared list
+      (data.action_items || []).forEach(function (ai) {
+        writeAction({
+          task: ai.task, owner: ai.owner === "unassigned" ? "" : (ai.owner || ""),
+          deadline: ai.deadline || "", confidence: ai.confidence || "medium",
+          source: "fable", done: false, at: Date.now()
+        });
+      });
+      toast("Deep synthesis complete");
+    })
+    .catch(function (e) { toast("Synthesis failed: " + e.message); })
+    .then(function () { btn.disabled = false; btn.innerHTML = "◈ Run Deep Synthesis (" + tier2Label() + ")"; });
+}
+function renderSynthesisSheet(d, by, at, targetId, model) {
+  var when = new Date(at);
+  var html = '<div class="sheet">' +
+    '<h4>Synthesis · ' + esc($("roomTitle").textContent) + '</h4>' +
+    '<div class="stamp mono">◈ ' + esc(model || tier2ModelId()) + ' · run by ' + esc(by) + ' · ' +
+    when.toLocaleDateString() + " " + when.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) + '</div>';
+  function section(title, items, fmt) {
+    if (!items || !items.length) return "";
+    return "<h5>" + title + "</h5><ul>" + items.map(fmt).join("") + "</ul>";
+  }
+  html += section("Executive summary", d.executive_summary, function (s) {
+    return "<li>" + esc(s) + "</li>";
+  });
+  html += section("Decisions", d.decisions, function (x) {
+    return "<li>" + esc(x.decision) + '<span class="sub">decided by ' + esc(x.decided_by) + "</span></li>";
+  });
+  html += section("Action items", d.action_items, function (x) {
+    return "<li>" + esc(x.task) +
+      '<span class="sub"><span class="conf conf-' + esc(x.confidence) + '">● ' + esc(x.confidence) + "</span> · " +
+      esc(x.owner) + (x.deadline ? " · due " + esc(x.deadline) : "") +
+      (x.rationale ? " — " + esc(x.rationale) : "") + "</span></li>";
+  });
+  html += section("Open questions", d.open_questions, function (s) {
+    return "<li>" + esc(s) + "</li>";
+  });
+  html += section("Tension / unresolved", d.tensions, function (x) {
+    return "<li>" + esc(x.topic) + '<span class="sub">' + esc(x.parties) + " · " + esc(x.status) + "</span></li>";
+  });
+  html += '<div class="sheet-tools">' +
+    '<button class="btn btn-ghost" onclick="exportSynthesis()">Copy minutes</button>' +
+    '<button class="btn btn-fable" onclick="shareSynthesis()">Share</button></div></div>';
+  $(targetId).innerHTML = html;
+  window._lastSynthesis = { d: d, by: by, at: at };
+}
+function synthesisMarkdown() {
+  var s = window._lastSynthesis; if (!s) return "";
+  var d = s.d, out = "# Minutes — " + $("roomTitle").textContent + "\n";
+  out += "_Generated by MeetOS · " + tier2ModelId() + " · " + new Date(s.at).toLocaleString() + "_\n\n";
+  function block(title, items, fmt) {
+    if (!items || !items.length) return "";
+    return "## " + title + "\n" + items.map(fmt).join("\n") + "\n\n";
+  }
+  out += block("Executive summary", d.executive_summary, function (x) { return "- " + x; });
+  out += block("Decisions", d.decisions, function (x) { return "- " + x.decision + " _(by " + x.decided_by + ")_"; });
+  out += block("Action items", d.action_items, function (x) {
+    return "- [ ] " + x.task + " — **" + x.owner + "**" + (x.deadline ? ", due " + x.deadline : "") +
+      " `confidence: " + x.confidence + "`";
+  });
+  out += block("Open questions", d.open_questions, function (x) { return "- " + x; });
+  out += block("Tension / unresolved", d.tensions, function (x) { return "- " + x.topic + " (" + x.parties + " · " + x.status + ")"; });
+  return out;
+}
+function exportSynthesis() { copyText(synthesisMarkdown()); toast("Minutes copied as Markdown"); }
+function shareSynthesis() {
+  var md = synthesisMarkdown();
+  if (navigator.share) navigator.share({ title: "Meeting minutes", text: md }).catch(function(){});
+  else { copyText(md); toast("Copied — paste anywhere"); }
+}
+
+/* ============================================================
+   Tier 2 — Cross-meeting memory (Fable 5)
+   ============================================================ */
+function renderCrossList() {
+  var list = JSON.parse(localStorage.getItem("meetos_recent") || "[]")
+    .filter(function (r) { return r.code !== S.room; }).slice(0, 6);
+  if (!list.length || !FIREBASE_OK) {
+    $("crossList").innerHTML = '<div style="color:var(--faint);font-size:13px;padding:6px 2px">' +
+      (FIREBASE_OK ? "Past rooms will appear here after more meetings." : "Cross-meeting memory needs Firebase configured.") + "</div>";
+    $("crossBtn").style.display = "none";
+    return;
+  }
+  $("crossBtn").style.display = "";
+  $("crossList").innerHTML = list.map(function (r) {
+    return '<label><input type="checkbox" value="' + r.code + '"> ' + esc(r.title) +
+      ' <span class="mono" style="color:var(--faint);font-size:11px">' + r.code + "</span></label>";
+  }).join("");
+}
+function runCrossSynthesis() {
+  if (S.role !== "moderator") { toast("Moderator only"); return; }
+  var checks = $("crossList").querySelectorAll("input:checked");
+  if (!checks.length) { toast("Select at least one past room"); return; }
+  if (checks.length > 4) { toast("Max 4 rooms per synthesis"); return; }
+  var codes = [];
+  for (var i = 0; i < checks.length; i++) codes.push(checks[i].value);
+  var btn = $("crossBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Gathering meetings…';
+  Promise.all(codes.map(function (code) {
+    return db.ref("rooms/" + code + "/transcript").once("value").then(function (snap) {
+      var v = snap.val() || {}, lines = Object.keys(v).map(function (k) { return v[k]; });
+      return "=== MEETING " + code + " ===\n" + transcriptText(lines).slice(0, 12000);
+    });
+  })).then(function (blocks) {
+    var current = "=== CURRENT MEETING ===\n" + transcriptText(S.transcript).slice(0, 12000);
+    var prompt = "You analyze patterns ACROSS multiple meetings of the same team. Identify only patterns genuinely supported by the text; say so explicitly if evidence is thin.\n\n" +
+      blocks.join("\n\n") + "\n\n" + current + "\n\n" +
+      "Respond ONLY with valid JSON, no markdown:\n" +
+      '{"recurring_blockers":["..."],"slipping_items":["items promised earlier and still open"],' +
+      '"decision_reversals":["..."],"themes":["..."],"recommendation":"one paragraph for the moderator"}';
+    btn.innerHTML = '<span class="spinner"></span> ' + tier2Label() + ' cross-referencing…';
+    return callClaude(tier2ModelId(), prompt, 3000);
+  }).then(function (text) {
+    var d = parseJSONLoose(text);
+    function ul(items) {
+      if (!items || !items.length) return "<li style='color:var(--faint)'>None detected</li>";
+      return items.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
+    }
+    $("crossResult").innerHTML = '<div class="sheet">' +
+      "<h4>Cross-meeting synthesis</h4>" +
+      '<div class="stamp mono">◈ ' + esc(tier2ModelId()) + ' · ' + (codes.length + 1) + " meetings</div>" +
+      "<h5>Recurring blockers</h5><ul>" + ul(d.recurring_blockers) + "</ul>" +
+      "<h5>Slipping action items</h5><ul>" + ul(d.slipping_items) + "</ul>" +
+      "<h5>Decision reversals</h5><ul>" + ul(d.decision_reversals) + "</ul>" +
+      "<h5>Themes</h5><ul>" + ul(d.themes) + "</ul>" +
+      "<h5>Recommendation</h5><p style='font-size:13.5px'>" + esc(d.recommendation || "") + "</p></div>";
+    toast("Cross-meeting synthesis complete");
+  }).catch(function (e) {
+    toast("Cross synthesis failed: " + e.message);
+  }).then(function () {
+    btn.disabled = false; btn.innerHTML = "◈ Synthesize across meetings";
+  });
+}
+</script>
+</body>
+</html>
