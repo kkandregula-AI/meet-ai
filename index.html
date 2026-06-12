@@ -105,6 +105,15 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
 .empty{color:var(--faint);font-size:13.5px;text-align:center;padding:48px 24px;line-height:1.8}
 .empty b{color:var(--dim)}
 
+.langbar{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);
+  background:var(--panel);font-size:12.5px;color:var(--dim)}
+.langbar select{background:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:6px 9px;font-size:12.5px;color:var(--text)}
+.ltag{font-size:9.5px;font-weight:700;letter-spacing:.05em;color:var(--haiku);
+  background:rgba(94,234,212,.1);border-radius:5px;padding:1px 6px;vertical-align:1px}
+.t-line.pending p{color:var(--dim);font-style:italic}
+.t-line.translated{cursor:pointer}
+
 /* ---------- Chat ---------- */
 .c-msg{margin-bottom:11px;max-width:86%}
 .c-msg .who{font-size:11px;color:var(--dim);margin-bottom:2px}
@@ -263,6 +272,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
         <span class="rec-dot"></span><span id="recLabel">Record</span>
       </button>
       <button class="icon-btn" id="videoBtn" onclick="toggleVideo()" aria-label="Toggle video">🎥</button>
+      <button class="icon-btn" id="endBtn" onclick="endMeeting()" aria-label="End meeting" style="display:none;border-color:rgba(255,92,92,.5)">⏹</button>
       <button class="icon-btn" onclick="openSettings()" aria-label="AI settings">⚙</button>
       <button class="icon-btn" onclick="shareRoom()" aria-label="Share room">⇪</button>
     </div>
@@ -278,6 +288,27 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
 
     <!-- Transcript -->
     <div class="pane active" id="pane-transcript">
+      <div class="langbar">🎙 I speak
+        <select id="langSel" onchange="setLang(this.value)">
+          <option value="en-IN">English</option>
+          <option value="te-IN">తెలుగు Telugu</option>
+          <option value="hi-IN">हिन्दी Hindi</option>
+          <option value="ta-IN">தமிழ் Tamil</option>
+          <option value="kn-IN">ಕನ್ನಡ Kannada</option>
+          <option value="ml-IN">മലയാളം Malayalam</option>
+          <option value="mr-IN">मराठी Marathi</option>
+          <option value="bn-IN">বাংলা Bengali</option>
+          <option value="gu-IN">ગુજરાતી Gujarati</option>
+          <option value="ur-IN">اردو Urdu</option>
+          <option value="fr-FR">Français</option>
+          <option value="es-ES">Español</option>
+          <option value="de-DE">Deutsch</option>
+          <option value="ar-SA">العربية Arabic</option>
+          <option value="zh-CN">中文 Chinese</option>
+          <option value="ja-JP">日本語 Japanese</option>
+        </select>
+        <span style="margin-left:auto;font-size:11px;color:var(--faint)">transcript shows English</span>
+      </div>
       <div class="scroll" id="transcriptScroll">
         <div class="empty" id="transcriptEmpty">No transcript yet.<br><b>Tap Record</b> — speech stays free, no tokens spent.</div>
         <div id="transcriptList"></div>
@@ -372,7 +403,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
     <h3>Assign action</h3>
     <p id="assignTaskText"></p>
     <div id="assignPeople"></div>
-    <button class="btn btn-ghost" style="margin-top:12px" onclick="closeAssign()">Cancel</button>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input id="assignFree" placeholder="Or type any name…" style="flex:1;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px">
+      <button class="btn btn-fable" style="width:auto;padding:0 16px" onclick="assignTo(document.getElementById('assignFree').value.trim()||'')">Set</button>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:10px" onclick="closeAssign()">Cancel</button>
   </div>
 </div>
 
@@ -665,8 +700,9 @@ function joinRoom() {
   });
 }
 function enterRoom(code, title, pin, name) {
-  S.room = code; S.pin = pin; S.name = name;
+  S.room = code; S.pin = pin; S.name = name; S.ended = false;
   S.transcript = []; S.chat = []; S.actions = {}; S.participants = {};
+  var oldWrap = $("wrapUp"); if (oldWrap) oldWrap.remove();
   localStorage.setItem("meetos_name", name);
   saveRecent(code, title, pin, S.role);
   $("roomTitle").textContent = title;
@@ -680,6 +716,8 @@ function enterRoom(code, title, pin, name) {
   applyRolePermissions();
   refreshTierBadges();
   renderPStrip();
+  initLangSel();
+  startTranslator();
   if (!FIREBASE_OK) {
     var n = $("aiNotice");
     n.style.display = "block"; n.className = "notice warn";
@@ -699,6 +737,7 @@ function enterRoom(code, title, pin, name) {
 function leaveRoom() {
   stopRec();
   stopVideo();
+  stopTranslator();
   detachListeners();
   if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/participants/" + S.uid).remove();
   S.room = null;
@@ -709,7 +748,8 @@ function attachListeners(code) {
   detachListeners();
   var base = "rooms/" + code;
   var tRef = db.ref(base + "/transcript");
-  tRef.on("child_added", function (snap) { onTranscriptLine(snap.val()); });
+  tRef.on("child_added", function (snap) { onTranscriptLine(snap.val(), snap.key); });
+  tRef.on("child_changed", function (snap) { onTranscriptChanged(snap.val(), snap.key); });
   S.listeners.push(tRef);
   var cRef = db.ref(base + "/chat");
   cRef.on("child_added", function (snap) { onChatMsg(snap.val()); });
@@ -725,6 +765,11 @@ function attachListeners(code) {
     syncPeers();
   });
   S.listeners.push(pRef);
+  var endRef = db.ref(base + "/meta/ended");
+  endRef.on("value", function (snap) {
+    if (snap.val()) onMeetingEnded(snap.val());
+  });
+  S.listeners.push(endRef);
   var puRef = db.ref(base + "/pulse");
   puRef.on("value", function (snap) {
     var v = snap.val();
@@ -748,6 +793,7 @@ function applyRolePermissions() {
   $("crossBtn").disabled = !isMod;
   $("pulseBtn").disabled = !isMod;
   $("pulseBtn").innerHTML = isMod ? "⚡ Refresh key points" : "⚡ Moderator refreshes — synced to all";
+  $("endBtn").style.display = isMod ? "" : "none";
   $("synthLaunch").querySelector("p").innerHTML = isMod
     ? "Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented."
     : "Only the room moderator can run Deep Synthesis (token cost control). Results appear here for everyone.";
@@ -766,6 +812,69 @@ function copyText(t) {
 }
 
 /* ============================================================
+   End meeting → wrap-up: download transcript, final AI analysis
+   ============================================================ */
+function endMeeting() {
+  if (S.role !== "moderator") { toast("Moderator only"); return; }
+  if (!window.confirm("End the meeting for everyone? Recording and video stop; the wrap-up screen opens.")) return;
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/meta/ended").set(Date.now());
+  else onMeetingEnded(Date.now());
+}
+function onMeetingEnded(at) {
+  if (S.ended) return;
+  S.ended = true;
+  stopRec(); stopVideo();
+  $("recPill").style.display = "none";
+  $("videoBtn").style.display = "none";
+  $("endBtn").style.display = "none";
+  var intelScroll = $("pane-intel").querySelector(".scroll");
+  var isMod = S.role === "moderator";
+  var div = document.createElement("div");
+  div.id = "wrapUp"; div.className = "intel-sec";
+  div.innerHTML = '<div class="sheet" style="border-left-color:var(--rec)">' +
+    '<h4>Meeting ended</h4>' +
+    '<div class="stamp mono">' + new Date(at).toLocaleString() + " · " +
+    S.transcript.length + " transcript lines</div>" +
+    (isMod
+      ? '<div class="sheet-tools" style="margin-top:10px">' +
+        '<button class="btn btn-ghost" onclick="downloadTranscript()">⬇ Transcript</button>' +
+        '<button class="btn btn-fable" onclick="runDeepSynthesis()">◈ Analyse meeting</button></div>' +
+        '<p style="font-size:12.5px;color:var(--dim);margin-top:10px">Analysis extracts decisions and action items below — tap 👤 on any item to set or change the responsible person.</p>'
+      : '<p style="font-size:13px;color:var(--dim);margin-top:8px">The moderator can download the transcript and run the final analysis — results will appear here for everyone.</p>') +
+    "</div>";
+  intelScroll.insertBefore(div, intelScroll.firstChild);
+  showPane("intel", document.querySelector(".tab.t-intel"));
+  toast("Meeting ended" + (isMod ? " — wrap-up ready" : ""));
+}
+function transcriptMarkdown() {
+  var out = "# Transcript — " + $("roomTitle").textContent + "\n";
+  out += "_MeetOS · room " + S.room + " · " + new Date().toLocaleString() + "_\n\n";
+  S.transcript.forEach(function (l) {
+    out += "**" + l.speaker + "** [" + l.ts + "]: " + l.text + "\n\n";
+  });
+  var keys = Object.keys(S.actions || {});
+  if (keys.length) {
+    out += "## Action items\n";
+    keys.forEach(function (k) {
+      var a = S.actions[k];
+      out += "- [" + (a.done ? "x" : " ") + "] " + a.task +
+        (a.owner ? " — **" + a.owner + "**" : " — unassigned") +
+        (a.deadline ? ", due " + a.deadline : "") + "\n";
+    });
+  }
+  return out;
+}
+function downloadTranscript() {
+  var md = transcriptMarkdown();
+  var a = document.createElement("a");
+  a.href = "data:text/markdown;charset=utf-8," + encodeURIComponent(md);
+  a.download = "meetos-" + (S.room || "meeting") + "-transcript.md";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  copyText(md);
+  toast("Transcript downloading — also copied to clipboard");
+}
+
+/* ============================================================
    Tabs
    ============================================================ */
 function showPane(name, el) {
@@ -778,13 +887,25 @@ function showPane(name, el) {
 
 /* ============================================================
    Tier 0 — Live transcription (Web Speech API, free)
+   Each speaker picks their language; Web Speech can't auto-detect.
    ============================================================ */
+var MY_LANG = localStorage.getItem("meetos_lang") || "en-IN";
+function setLang(code) {
+  MY_LANG = code;
+  localStorage.setItem("meetos_lang", code);
+  if (S.recOn) { stopRec(); startRec(); } // hot-swap recognizer language
+  toast("Speaking language: " + code);
+}
+function initLangSel() {
+  var sel = $("langSel");
+  if (sel) sel.value = MY_LANG;
+}
 function toggleRec() { S.recOn ? stopRec() : startRec(); }
 function startRec() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast("Speech recognition not supported in this browser"); return; }
   var rec = new SR();
-  rec.continuous = true; rec.interimResults = true; rec.lang = "en-IN";
+  rec.continuous = true; rec.interimResults = true; rec.lang = MY_LANG;
   rec.onresult = function (e) {
     var interim = "";
     for (var i = e.resultIndex; i < e.results.length; i++) {
@@ -810,21 +931,49 @@ function stopRec() {
 }
 function pushTranscript(text) {
   if (!text) return;
-  var line = { speaker: S.name, text: text, ts: nowTs(), at: Date.now() };
+  var line = { speaker: S.name, text: text, ts: nowTs(), at: Date.now(), lang: MY_LANG };
   if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/transcript").push(line);
-  else onTranscriptLine(line);
+  else onTranscriptLine(line, "local" + Date.now() + Math.random().toString(36).slice(2, 5));
 }
-function onTranscriptLine(line) {
+function isEnglish(line) { return !line.lang || line.lang.indexOf("en") === 0; }
+function onTranscriptLine(line, key) {
   if (!line) return;
+  line.key = key;
   S.transcript.push(line);
   $("transcriptEmpty").style.display = "none";
   var div = document.createElement("div");
-  div.className = "t-line";
-  div.innerHTML = '<span class="who">' + esc(line.speaker) + '</span>' +
-    '<span class="ts mono">' + esc(line.ts) + '</span><p>' + esc(line.text) + '</p>';
+  div.id = "tl-" + key;
+  renderTLine(div, line);
   $("transcriptList").appendChild(div);
   $("transcriptScroll").scrollTop = $("transcriptScroll").scrollHeight;
   updateTokenEstimate();
+}
+function onTranscriptChanged(line, key) {
+  for (var i = 0; i < S.transcript.length; i++) {
+    if (S.transcript[i].key === key) {
+      line.key = key;
+      S.transcript[i] = line;
+      var div = $("tl-" + key);
+      if (div) renderTLine(div, line);
+      return;
+    }
+  }
+}
+function renderTLine(div, line) {
+  var pending = !isEnglish(line) && !line.en;
+  var showOrig = div._showOrig && line.en;
+  var text = showOrig ? line.text : (line.en || line.text);
+  var tag = "";
+  if (!isEnglish(line)) {
+    tag = ' <span class="ltag">' + esc((line.lang || "").split("-")[0]) +
+          (line.en ? (showOrig ? " · tap for English" : " ⇄") : "") + "</span>";
+  }
+  div.className = "t-line" + (pending ? " pending" : "") + (line.en ? " translated" : "");
+  div.innerHTML = '<span class="who">' + esc(line.speaker) + '</span>' +
+    '<span class="ts mono">' + esc(line.ts) + '</span>' + tag +
+    '<p>' + esc(text) + (pending ? ' <span class="ltag">translating…</span>' : "") + "</p>";
+  if (line.en) div.onclick = function () { div._showOrig = !div._showOrig; renderTLine(div, line); };
+  else div.onclick = null;
 }
 function showInterim(text) {
   var el = $("interimLine");
@@ -916,6 +1065,7 @@ function closePeer(uid) {
   delete RTC.peers[uid];
   var tile = $("vtile-" + uid);
   if (tile) tile.remove();
+  updateVHint();
 }
 function sendSignal(to, type, data) {
   db.ref("rooms/" + S.room + "/signals").push({
@@ -960,6 +1110,25 @@ function addTile(uid, name, avatar, stream, isLocal) {
   var v = tile.querySelector("video");
   v.srcObject = stream;
   v.onplaying = function () { var ph = tile.querySelector(".vph"); if (ph) ph.style.display = "none"; };
+  var vt = stream.getVideoTracks()[0];
+  if (vt) vt.onended = function () {
+    var ph = tile.querySelector(".vph"); if (ph) ph.style.display = "flex";
+  };
+  updateVHint();
+}
+function updateVHint() {
+  var grid = $("videoGrid");
+  var hint = $("vHint");
+  var tiles = grid.querySelectorAll(".vtile").length;
+  if (RTC.on && tiles <= 1) {
+    if (!hint) {
+      hint = document.createElement("div");
+      hint.id = "vHint";
+      hint.style.cssText = "grid-column:1/-1;font-size:12px;color:var(--dim);text-align:center;padding:6px";
+      hint.textContent = "Waiting for others — they must be in the room (foreground) and tap 🎥 too.";
+      grid.appendChild(hint);
+    }
+  } else if (hint) hint.remove();
 }
 
 /* ============================================================
@@ -1016,6 +1185,7 @@ function openAssign(key) {
   var names = {};
   names[S.name] = true;
   for (var uid in S.participants) names[S.participants[uid].name] = true;
+  S.transcript.forEach(function (l) { if (l.speaker) names[l.speaker] = true; });
   var html = "";
   for (var n in names) {
     html += '<button class="btn btn-ghost" style="margin-bottom:8px" onclick="assignTo(\'' +
@@ -1109,7 +1279,9 @@ function parseJSONLoose(text) {
   return JSON.parse(clean);
 }
 function transcriptText(lines) {
-  return lines.map(function (l) { return "[" + l.ts + "] " + l.speaker + ": " + l.text; }).join("\n");
+  return lines.map(function (l) {
+    return "[" + l.ts + "] " + l.speaker + ": " + (l.en || l.text);
+  }).join("\n");
 }
 function estimateTokens(str) { return Math.ceil(str.length / 4); }
 function updateTokenEstimate() {
@@ -1117,6 +1289,54 @@ function updateTokenEstimate() {
              S.chat.map(function (c) { return c.who + ": " + c.text; }).join("\n");
   $("tokenEst").innerHTML = "~<span class='mono'>" + estimateTokens(full).toLocaleString() +
     "</span> input tokens · " + tier2Label() + " fires once, on demand";
+}
+
+/* ============================================================
+   Live translation — moderator's device batches non-English
+   lines through Haiku every few seconds; English syncs to all.
+   ============================================================ */
+var XLAT = { timer: null, busy: false };
+function canModAI() { return S.role === "moderator" && !!(CONFIG.PROXY_URL || SETTINGS.userKey); }
+function startTranslator() {
+  stopTranslator();
+  XLAT.timer = setInterval(translateTick, 6000);
+}
+function stopTranslator() {
+  if (XLAT.timer) { clearInterval(XLAT.timer); XLAT.timer = null; }
+}
+function translateTick() {
+  if (XLAT.busy || S.ended || !canModAI()) return;
+  var pending = [];
+  for (var i = 0; i < S.transcript.length && pending.length < 20; i++) {
+    var l = S.transcript[i];
+    if (!isEnglish(l) && !l.en && !l._xq) pending.push(l);
+  }
+  if (!pending.length) return;
+  pending.forEach(function (l) { l._xq = true; });
+  XLAT.busy = true;
+  var numbered = pending.map(function (l, i) {
+    return (i + 1) + ". [" + l.lang + "] " + l.text;
+  }).join("\n");
+  var prompt = "Translate each numbered line into natural conversational English, preserving meaning and tone. Respond ONLY with a JSON array of strings, exactly " + pending.length + " items, same order, no markdown.\n\n" + numbered;
+  callClaude(CONFIG.MODEL_HAIKU, prompt, 1200)
+    .then(function (text) {
+      var arr = parseJSONLoose(text);
+      pending.forEach(function (l, i) {
+        var en = arr[i];
+        if (!en) { l._xq = false; return; }
+        if (FIREBASE_OK && S.room && String(l.key).indexOf("local") !== 0) {
+          db.ref("rooms/" + S.room + "/transcript/" + l.key + "/en").set(en);
+        } else {
+          l.en = en;
+          var div = $("tl-" + l.key);
+          if (div) renderTLine(div, l);
+        }
+      });
+    })
+    .catch(function () {
+      pending.forEach(function (l) { l._xq = false; }); // retry next tick
+    })
+    .then(function () { XLAT.busy = false; });
 }
 
 /* ============================================================
