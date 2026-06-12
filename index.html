@@ -917,12 +917,24 @@ function startRec() {
     }
     showInterim(interim);
   };
+  rec.onstart = function () {
+    if (!S._recAnnounced) { toast("Mic listening (" + MY_LANG + ") — speak now"); S._recAnnounced = true; }
+  };
   rec.onend = function () { if (S.recOn) { try { rec.start(); } catch (e) {} } };
   rec.onerror = function (e) {
-    if (e.error === "not-allowed") { toast("Microphone permission denied"); stopRec(); }
+    if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      toast("Microphone permission denied"); stopRec();
+    } else if (e.error === "language-not-supported") {
+      toast("This browser can't recognize " + MY_LANG + " — try English/Hindi, or use Android Chrome for Telugu");
+      stopRec();
+    } else if (e.error === "audio-capture") {
+      toast("No mic audio — close other apps using the microphone");
+    } else if (e.error === "network") {
+      toast("Speech service network error — retrying…");
+    }
   };
   try { rec.start(); } catch (e) { toast("Could not start microphone"); return; }
-  S.recognition = rec; S.recOn = true;
+  S.recognition = rec; S.recOn = true; S._recAnnounced = false;
   $("recPill").classList.add("live"); $("recLabel").textContent = "Live";
 }
 function stopRec() {
@@ -1003,7 +1015,7 @@ function startVideo() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     toast("Camera not available in this browser"); return;
   }
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } }, audio: true })
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } }, audio: false })
     .then(function (stream) {
       RTC.stream = stream; RTC.on = true; RTC.joinedAt = Date.now();
       $("videoBtn").style.borderColor = "var(--rec)";
@@ -1012,7 +1024,7 @@ function startVideo() {
       listenSignals();
       syncPeers();
       db.ref("rooms/" + S.room + "/participants/" + S.uid + "/video").set(true);
-      toast("Video on — mesh works best with ≤4 people");
+      toast("Video on (camera-only — mic stays free for transcription)");
     })
     .catch(function () { toast("Camera/mic permission denied"); });
 }
