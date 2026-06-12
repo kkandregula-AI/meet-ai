@@ -425,6 +425,7 @@ var CONFIG = {
   // own key in Settings (BYOK), it is forwarded via the x-user-key header and
   // the proxy uses it instead of the server's ANTHROPIC_API_KEY.
   PROXY_URL: "/api/claude",          // set to "" to use direct browser mode
+  SERVER_HAS_KEY: false,             // set true ONLY if ANTHROPIC_API_KEY is set in Vercel env vars
   MODEL_FABLE: "claude-fable-5",
   MODEL_HAIKU: "claude-haiku-4-5-20251001",
   FIREBASE: {
@@ -719,6 +720,8 @@ function enterRoom(code, title, pin, name) {
   applyRolePermissions();
   refreshTierBadges();
   renderPStrip();
+  MY_LANG = "en-IN";                       // every meeting starts in English;
+  localStorage.setItem("meetos_lang", MY_LANG); // user switches after key setup
   initLangSel();
   startTranslator();
   if (!FIREBASE_OK) {
@@ -893,7 +896,25 @@ function showPane(name, el) {
    Each speaker picks their language; Web Speech can't auto-detect.
    ============================================================ */
 var MY_LANG = localStorage.getItem("meetos_lang") || "en-IN";
+function keyAvailable() {
+  return !!SETTINGS.userKey || CONFIG.SERVER_HAS_KEY;
+}
 function setLang(code) {
+  var isEn = code.indexOf("en") === 0;
+  if (!isEn) {
+    if (S.role === "moderator" && !keyAvailable()) {
+      window.alert("Non-English languages need an Anthropic API key for live English translation.\n\nPlease add your key in ⚙ Settings first, then choose your language.");
+      $("langSel").value = "en-IN";
+      MY_LANG = "en-IN";
+      localStorage.setItem("meetos_lang", MY_LANG);
+      updateLangNote();
+      openSettings();
+      return;
+    }
+    if (S.role !== "moderator") {
+      toast("Note: English translation depends on the moderator having an API key");
+    }
+  }
   MY_LANG = code;
   localStorage.setItem("meetos_lang", code);
   if (S.recOn) { stopRec(); startRec(); } // hot-swap recognizer language
@@ -906,7 +927,16 @@ function updateLangNote() {
   var n = $("langNote");
   if (!n) return;
   var isEn = MY_LANG.indexOf("en") === 0;
-  if (isEn) { n.style.display = "none"; return; }
+  if (isEn) {
+    n.className = "notice";
+    n.style.display = "block";
+    n.style.margin = "10px 16px 0";
+    n.style.fontSize = "12px";
+    n.innerHTML = "ℹ️ <b>English meetings need no AI key.</b> To speak another language " +
+      "(translated live into the English transcript), the moderator must first add an " +
+      "Anthropic API key in ⚙ Settings.";
+    return;
+  }
   var weakOnIOS = ["te-", "ta-", "kn-", "ml-", "mr-", "bn-", "gu-", "ur-"].some(function (p) {
     return MY_LANG.indexOf(p) === 0;
   });
