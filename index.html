@@ -703,6 +703,8 @@ function enterRoom(code, title, pin, name) {
   S.room = code; S.pin = pin; S.name = name; S.ended = false;
   S.transcript = []; S.chat = []; S.actions = {}; S.participants = {};
   var oldWrap = $("wrapUp"); if (oldWrap) oldWrap.remove();
+  $("recPill").style.display = "";   // restore controls hidden by a previous
+  $("videoBtn").style.display = "";  // meeting's end-of-meeting cleanup
   localStorage.setItem("meetos_name", name);
   saveRecent(code, title, pin, S.role);
   $("roomTitle").textContent = title;
