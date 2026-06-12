@@ -378,6 +378,19 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
 
 <div id="toast" role="status"></div>
 
+<!-- AV mode chooser -->
+<div class="modal-bg" id="avModal">
+  <div class="modal">
+    <h3>Connect with the room</h3>
+    <p>Pick one — browser apps can't reliably do voice + video + transcription all at once on phones.</p>
+    <button class="btn btn-fable" style="margin-bottom:9px" onclick="startAV('voice')">🔊 Voice call — hear each other, photo tiles shown</button>
+    <button class="btn btn-ghost" style="margin-bottom:9px" onclick="startAV('video')">🎥 Video (silent) — see each other, mic stays free for transcription</button>
+    <button class="btn btn-ghost" style="margin-bottom:9px" onclick="stopVideo();closeAV()">⏹ Turn off voice &amp; video</button>
+    <p style="margin-top:6px;font-size:11.5px">⚠ On iPhone, Voice call and Record (transcription) may conflict — if transcript lines stop, use one at a time on that device.</p>
+    <button class="btn btn-ghost" onclick="closeAV()">Cancel</button>
+  </div>
+</div>
+
 <!-- Settings modal -->
 <div class="modal-bg" id="settingsModal">
   <div class="modal">
@@ -1072,28 +1085,45 @@ function showInterim(text) {
    Opt-in video — WebRTC mesh, Firebase signaling
    Audio mode shows photo tiles; video replaces them when on.
    ============================================================ */
-var RTC = { on: false, stream: null, peers: {}, sigRef: null, joinedAt: 0 };
+var RTC = { on: false, mode: null, stream: null, peers: {}, sigRef: null, joinedAt: 0 };
 var ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
 
-function toggleVideo() { RTC.on ? stopVideo() : startVideo(); }
+function toggleVideo() { $("avModal").classList.add("show"); }
+function closeAV() { $("avModal").classList.remove("show"); }
+function startAV(mode) {
+  closeAV();
+  if (RTC.on) stopVideo();        // clean switch between modes
+  startVideo(mode);
+}
 
-function startVideo() {
-  if (!FIREBASE_OK) { toast("Video needs Firebase configured (realtime signaling)"); return; }
+function startVideo(mode) {
+  mode = mode || "video";
+  if (!FIREBASE_OK) { toast("Voice/video needs Firebase configured (realtime signaling)"); return; }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    toast("Camera not available in this browser"); return;
+    toast("Camera/mic not available in this browser"); return;
   }
-  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } }, audio: false })
+  var constraints = mode === "voice"
+    ? { audio: true, video: false }
+    : { video: { facingMode: "user", width: { ideal: 640 } }, audio: false };
+  navigator.mediaDevices.getUserMedia(constraints)
     .then(function (stream) {
-      RTC.stream = stream; RTC.on = true; RTC.joinedAt = Date.now();
-      $("videoBtn").style.borderColor = "var(--rec)";
+      RTC.stream = stream; RTC.on = true; RTC.mode = mode; RTC.joinedAt = Date.now();
+      $("videoBtn").style.borderColor = mode === "voice" ? "var(--haiku)" : "var(--rec)";
+      $("videoBtn").textContent = mode === "voice" ? "🔊" : "🎥";
       $("videoGrid").classList.add("on");
       addTile(S.uid, S.name, MY_AVATAR, stream, true);
       listenSignals();
       syncPeers();
-      db.ref("rooms/" + S.room + "/participants/" + S.uid + "/video").set(true);
-      toast("Video on (camera-only — mic stays free for transcription)");
+      db.ref("rooms/" + S.room + "/participants/" + S.uid + "/av").set(mode);
+      if (mode === "voice") {
+        toast(S.recOn && IS_IOS
+          ? "Voice on — ⚠ transcription may pause on iPhone while voice is active"
+          : "Voice on — others in voice mode can hear you");
+      } else {
+        toast("Video on (camera-only — mic stays free for transcription)");
+      }
     })
-    .catch(function () { toast("Camera/mic permission denied"); });
+    .catch(function () { toast(mode === "voice" ? "Microphone permission denied" : "Camera permission denied"); });
 }
 function stopVideo() {
   if (!RTC.on && !RTC.stream) return;
@@ -1103,16 +1133,18 @@ function stopVideo() {
   if (RTC.sigRef) { RTC.sigRef.off(); RTC.sigRef = null; }
   $("videoGrid").innerHTML = ""; $("videoGrid").classList.remove("on");
   $("videoBtn").style.borderColor = "";
+  $("videoBtn").textContent = "🎥";
+  RTC.mode = null;
   if (FIREBASE_OK && S.room)
-    db.ref("rooms/" + S.room + "/participants/" + S.uid + "/video").set(false);
+    db.ref("rooms/" + S.room + "/participants/" + S.uid + "/av").set(null);
 }
 function syncPeers() {
   if (!RTC.on) return;
   for (var uid in S.participants) {
     if (uid === S.uid) continue;
-    var wantsVideo = S.participants[uid].video;
-    if (wantsVideo && !RTC.peers[uid]) ensurePeer(uid);
-    if (!wantsVideo && RTC.peers[uid]) closePeer(uid);
+    var wantsAV = S.participants[uid].av || S.participants[uid].video;
+    if (wantsAV && !RTC.peers[uid]) ensurePeer(uid);
+    if (!wantsAV && RTC.peers[uid]) closePeer(uid);
   }
   // drop peers who left the room
   for (var pid in RTC.peers) if (!S.participants[pid]) closePeer(pid);
@@ -1190,7 +1222,17 @@ function addTile(uid, name, avatar, stream, isLocal) {
     '<div class="vname">' + esc(isLocal ? "You" : name) + "</div>";
   var v = tile.querySelector("video");
   v.srcObject = stream;
-  v.onplaying = function () { var ph = tile.querySelector(".vph"); if (ph) ph.style.display = "none"; };
+  var hasVideo = stream.getVideoTracks().length > 0;
+  if (hasVideo) {
+    v.onplaying = function () { var ph = tile.querySelector(".vph"); if (ph) ph.style.display = "none"; };
+  } else if (!isLocal) {
+    // voice-only remote: keep the photo, make sure audio actually plays (autoplay policies)
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {
+      toast("Tap " + name + "'s tile to hear them");
+      tile.onclick = function () { v.play(); tile.onclick = null; };
+    });
+  }
   var vt = stream.getVideoTracks()[0];
   if (vt) vt.onended = function () {
     var ph = tile.querySelector(".vph"); if (ph) ph.style.display = "flex";
@@ -1206,7 +1248,7 @@ function updateVHint() {
       hint = document.createElement("div");
       hint.id = "vHint";
       hint.style.cssText = "grid-column:1/-1;font-size:12px;color:var(--dim);text-align:center;padding:6px";
-      hint.textContent = "Waiting for others — they must be in the room (foreground) and tap 🎥 too.";
+      hint.textContent = "Waiting for others — they must be in the room (foreground) and pick 🔊 or 🎥 too.";
       grid.appendChild(hint);
     }
   } else if (hint) hint.remove();
