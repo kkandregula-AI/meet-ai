@@ -356,7 +356,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
             <p>Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented.</p>
             <button class="btn btn-fable" id="synthBtn" onclick="runDeepSynthesis()">◈ Run Deep Synthesis</button>
             <div class="token-est" id="tokenEst">~<span class="mono">0</span> input tokens</div>
+            <button class="btn btn-ghost" style="margin-top:10px;font-size:13px" id="sampleBtn" onclick="toggleSample()">👁 See a sample result (no tokens used)</button>
           </div>
+          <div id="synthSample"></div>
           <div id="synthResult"></div>
         </div>
 
@@ -1557,6 +1559,56 @@ function shareSynthesis() {
   var md = synthesisMarkdown();
   if (navigator.share) navigator.share({ title: "Meeting minutes", text: md }).catch(function(){});
   else { copyText(md); toast("Copied — paste anywhere"); }
+}
+
+/* ============================================================
+   Sample Deep Synthesis — static preview, zero tokens
+   ============================================================ */
+var SAMPLE_SYNTH = {
+  executive_summary: [
+    "Team agreed to launch the pilot in Hyderabad on July 1 with 50 users.",
+    "Budget approval is the main open blocker, owned by finance.",
+    "Onboarding flow needs Telugu localisation before launch."
+  ],
+  decisions: [
+    { decision: "Pilot city will be Hyderabad, not Bengaluru", decided_by: "Krishnamurthy" },
+    { decision: "Launch date fixed for July 1", decided_by: "whole team" }
+  ],
+  action_items: [
+    { task: "Prepare Telugu onboarding screens", owner: "Venkat", deadline: "June 25",
+      confidence: "high", rationale: "explicitly assigned with date" },
+    { task: "Get budget sign-off from finance", owner: "Priya", deadline: null,
+      confidence: "medium", rationale: "Priya volunteered but no deadline was stated" },
+    { task: "Arrange demo devices for pilot users", owner: "unassigned", deadline: null,
+      confidence: "low", rationale: "mentioned twice but nobody took ownership" }
+  ],
+  open_questions: [
+    "Will pilot users get free credits or a discount?",
+    "Who handles support calls in week one?"
+  ],
+  tensions: [
+    { topic: "Whether to include video in v1", parties: "Krishnamurthy vs Venkat", status: "parked" }
+  ]
+};
+function toggleSample() {
+  var box = $("synthSample");
+  if (box.innerHTML) {
+    box.innerHTML = "";
+    $("sampleBtn").textContent = "👁 See a sample result (no tokens used)";
+    return;
+  }
+  var keep = window._lastSynthesis;        // don't let the sample hijack export
+  renderSynthesisSheet(SAMPLE_SYNTH, "Sample", Date.now(), "synthSample", "claude-fable-5");
+  window._lastSynthesis = keep;
+  var sheet = box.querySelector(".sheet");
+  if (sheet) {
+    var tools = sheet.querySelector(".sheet-tools");
+    if (tools) tools.remove();             // no export buttons on fake data
+    var stamp = sheet.querySelector(".stamp");
+    if (stamp) stamp.innerHTML = '<span style="color:var(--amber)">SAMPLE DATA — illustration only.</span> Your real result analyses your actual transcript.';
+    sheet.style.opacity = "0.92";
+  }
+  $("sampleBtn").textContent = "✕ Hide sample";
 }
 
 /* ============================================================
