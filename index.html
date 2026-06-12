@@ -335,8 +335,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
         <div class="notice" id="aiNotice" style="display:none"></div>
 
         <div class="intel-sec">
-          <h3>Quick pulse <span class="tier-tag tier-haiku">TIER 1 · HAIKU</span></h3>
-          <div class="chips" id="pulseChips"><span style="color:var(--faint);font-size:13px">Key points appear here — cheap, fast, frequent.</span></div>
+          <h3>Quick pulse · synopsis &amp; action items <span class="tier-tag tier-haiku">TIER 1 · HAIKU</span></h3>
+          <div id="pulseSynopsis" style="font-size:13.5px;color:var(--text);margin-bottom:10px;display:none"></div>
+          <div class="chips" id="pulseChips"><span style="color:var(--faint);font-size:13px">Synopsis, key points and draft action items appear here — cheap, fast, frequent.</span></div>
           <button class="btn btn-ghost" style="margin-top:11px" id="pulseBtn" onclick="runQuickPulse()">⚡ Refresh key points</button>
         </div>
 
@@ -349,8 +350,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
           </div>
         </div>
 
-        <div class="intel-sec">
-          <h3>Deep synthesis <span class="tier-tag tier-fable" id="tier2Badge">TIER 2 · FABLE 5</span></h3>
+        <div class="intel-sec" id="secDeep">
+          <h3>Deep synopsis · senior management <span class="tier-tag tier-fable" id="tier2Badge">TIER 2 · FABLE 5</span></h3>
           <div class="synth-launch" id="synthLaunch">
             <strong style="font-size:14px">Structured minutes, reasoned — not guessed.</strong>
             <p>Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented.</p>
@@ -362,7 +363,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
           <div id="synthResult"></div>
         </div>
 
-        <div class="intel-sec">
+        <div class="intel-sec" id="secCross">
           <h3>Cross-meeting memory <span class="tier-tag tier-fable" id="tier2BadgeCross">TIER 2 · FABLE 5</span></h3>
           <div class="notice">Select up to 4 past rooms. Fable 5 finds recurring blockers, slipping action items and decision reversals across meetings.</div>
           <div class="cross-list" id="crossList"></div>
@@ -794,7 +795,7 @@ function attachListeners(code) {
   var puRef = db.ref(base + "/pulse");
   puRef.on("value", function (snap) {
     var v = snap.val();
-    if (v && v.points) renderPulse(v.points);
+    if (v && (v.points || v.synopsis)) renderPulse(v);
   });
   S.listeners.push(puRef);
   var sRef = db.ref(base + "/synthesis");
@@ -815,6 +816,8 @@ function applyRolePermissions() {
   $("pulseBtn").disabled = !isMod;
   $("pulseBtn").innerHTML = isMod ? "⚡ Refresh key points" : "⚡ Moderator refreshes — synced to all";
   $("endBtn").style.display = isMod ? "" : "none";
+  $("secDeep").style.display = isMod ? "" : "none";   // Fable deep synopsis:
+  $("secCross").style.display = isMod ? "" : "none";  // senior-management view, moderator only
   $("synthLaunch").querySelector("p").innerHTML = isMod
     ? "Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented."
     : "Only the room moderator can run Deep Synthesis (token cost control). Results appear here for everyone.";
@@ -861,7 +864,7 @@ function onMeetingEnded(at) {
         '<button class="btn btn-ghost" onclick="downloadTranscript()">⬇ Transcript</button>' +
         '<button class="btn btn-fable" onclick="runDeepSynthesis()">◈ Analyse meeting</button></div>' +
         '<p style="font-size:12.5px;color:var(--dim);margin-top:10px">Analysis extracts decisions and action items below — tap 👤 on any item to set or change the responsible person.</p>'
-      : '<p style="font-size:13px;color:var(--dim);margin-top:8px">The moderator can download the transcript and run the final analysis — results will appear here for everyone.</p>') +
+      : '<p style="font-size:13px;color:var(--dim);margin-top:8px">The moderator runs the final analysis. Your assigned action items appear in the shared list above.</p>') +
     "</div>";
   intelScroll.insertBefore(div, intelScroll.firstChild);
   showPane("intel", document.querySelector(".tab.t-intel"));
@@ -1338,7 +1341,7 @@ function renderActions() {
       '<span onclick="openAssign(\'' + k + '\')" style="cursor:pointer">👤 ' + (a.owner ? esc(a.owner) : "assign") + '</span>' +
       (a.deadline ? '<span>📅 ' + esc(a.deadline) + '</span>' : "") +
       '<span class="conf conf-' + esc(a.confidence || "high") + '">● ' + esc(a.confidence || "high") + '</span>' +
-      '<span style="color:var(--faint)">' + (a.source === "fable" ? "◈ Fable 5" : "manual") + '</span>' +
+      '<span style="color:var(--faint)">' + (a.source === "fable" ? "◈ Fable 5" : a.source === "haiku" ? "⚡ Haiku draft" : "manual") + '</span>' +
       '</div></div></div>';
   }
   $("actionList").innerHTML = html;
@@ -1473,25 +1476,55 @@ function translateTick() {
 function runQuickPulse() {
   if (S.role !== "moderator") { toast("The moderator runs AI — results appear here for everyone"); return; }
   if (!S.transcript.length) { toast("Nothing to summarize yet"); return; }
-  var recent = transcriptText(S.transcript).slice(-3000);
-  var prompt = "You summarize live meetings. From this recent transcript window, extract 3-5 key points as short phrases (max 8 words each). Respond ONLY with a JSON array of strings, no markdown, no preamble.\n\nTRANSCRIPT:\n" + recent;
+  var recent = transcriptText(S.transcript).slice(-4000);
+  var prompt = "You summarize live meetings. From this transcript window produce:\n" +
+    "1. synopsis: a plain 2-3 sentence summary of where the meeting stands\n" +
+    "2. key_points: 3-5 short phrases (max 8 words each)\n" +
+    "3. action_items: up to 5 tasks actually mentioned; owner ONLY if explicitly stated, else empty string. Never invent owners.\n" +
+    "Respond ONLY with JSON, no markdown: {\"synopsis\":\"...\",\"key_points\":[\"...\"],\"action_items\":[{\"task\":\"...\",\"owner\":\"\"}]}\n\nTRANSCRIPT:\n" + recent;
   var btn = $("pulseBtn");
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Reading…';
   callClaude(CONFIG.MODEL_HAIKU, prompt, 400)
     .then(function (text) {
-      var points = parseJSONLoose(text);
+      var data = parseJSONLoose(text);
       if (FIREBASE_OK && S.room)
-        db.ref("rooms/" + S.room + "/pulse").set({ points: points, at: Date.now() });
-      else renderPulse(points);
+        db.ref("rooms/" + S.room + "/pulse").set({
+          synopsis: data.synopsis || "", points: data.key_points || [], at: Date.now()
+        });
+      else renderPulse(data);
+      // draft action items flow into the shared list for the moderator to allocate
+      var added = 0;
+      (data.action_items || []).forEach(function (ai) {
+        if (!ai.task || actionExists(ai.task)) return;
+        writeAction({ task: ai.task, owner: ai.owner || "", deadline: "",
+                      confidence: "medium", source: "haiku", done: false, at: Date.now() });
+        added++;
+      });
+      if (added) toast(added + " draft action item" + (added > 1 ? "s" : "") + " added — tap 👤 to allocate");
     })
     .catch(function (e) { toast("Pulse failed: " + e.message); })
     .then(function () { btn.disabled = false; btn.innerHTML = "⚡ Refresh key points"; });
 }
 
-function renderPulse(points) {
+function renderPulse(data) {
+  var points = data && data.points ? data.points :
+               data && data.key_points ? data.key_points :
+               (Array.isArray(data) ? data : []);
+  var syn = data && data.synopsis;
+  var sEl = $("pulseSynopsis");
+  if (syn) { sEl.style.display = "block"; sEl.textContent = syn; }
+  else sEl.style.display = "none";
   $("pulseChips").innerHTML = (points || []).map(function (p) {
     return '<span class="chip">' + esc(p) + '</span>';
   }).join("");
+}
+function actionExists(task) {
+  var t = String(task).toLowerCase().trim();
+  for (var k in S.actions) {
+    var e = String(S.actions[k].task || "").toLowerCase().trim();
+    if (e === t || e.indexOf(t) > -1 || t.indexOf(e) > -1) return true;
+  }
+  return false;
 }
 
 /* ============================================================
