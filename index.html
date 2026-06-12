@@ -392,10 +392,10 @@ var CONFIG = {
   MODEL_FABLE: "claude-fable-5",
   MODEL_HAIKU: "claude-haiku-4-5-20251001",
   FIREBASE: {
-    apiKey: "YOUR_FIREBASE_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT"
+    apiKey: "AIzaSyA6iWkSalpENG7V16vI1OYmp5-53pURnK0",
+    authDomain: "meet-ai-fc4c2.firebaseapp.com",
+    databaseURL: "https://meet-ai-fc4c2-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "meet-ai-fc4c2"
   }
 };
 
@@ -410,7 +410,9 @@ var S = {
 };
 
 try {
-  if (CONFIG.FIREBASE.apiKey.indexOf("YOUR_") !== 0) {
+  if (typeof firebase === "undefined") {
+    console.warn("Firebase SDK not loaded (blocked network or sandboxed preview) — demo mode");
+  } else if (CONFIG.FIREBASE.apiKey.indexOf("YOUR_") !== 0) {
     firebase.initializeApp(CONFIG.FIREBASE);
     db = firebase.database();
     FIREBASE_OK = true;
