@@ -1021,6 +1021,11 @@ function onTranscriptLine(line, key) {
   $("transcriptList").appendChild(div);
   $("transcriptScroll").scrollTop = $("transcriptScroll").scrollHeight;
   updateTokenEstimate();
+  // fast-path: translate new non-English lines right away (debounced to batch bursts)
+  if (!isEnglish(line) && !line.en && typeof canModAI === "function" && canModAI()) {
+    clearTimeout(XLAT.fast);
+    XLAT.fast = setTimeout(translateTick, 900);
+  }
 }
 function onTranscriptChanged(line, key) {
   for (var i = 0; i < S.transcript.length; i++) {
@@ -1369,7 +1374,7 @@ function updateTokenEstimate() {
    Live translation — moderator's device batches non-English
    lines through Haiku every few seconds; English syncs to all.
    ============================================================ */
-var XLAT = { timer: null, busy: false };
+var XLAT = { timer: null, busy: false, fast: null };
 function canModAI() { return S.role === "moderator" && !!(CONFIG.PROXY_URL || SETTINGS.userKey); }
 function startTranslator() {
   stopTranslator();
@@ -1377,6 +1382,7 @@ function startTranslator() {
 }
 function stopTranslator() {
   if (XLAT.timer) { clearInterval(XLAT.timer); XLAT.timer = null; }
+  if (XLAT.fast) { clearTimeout(XLAT.fast); XLAT.fast = null; }
 }
 function translateTick() {
   if (XLAT.busy || S.ended || !canModAI()) return;
