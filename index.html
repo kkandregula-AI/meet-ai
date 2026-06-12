@@ -162,6 +162,34 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
 .notice{font-size:12.5px;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 13px;margin-bottom:14px}
 .notice.warn{border-color:rgba(255,180,84,.4);color:var(--amber)}
 
+/* ---------- Participants strip & avatars ---------- */
+.pstrip{display:flex;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);
+  background:var(--panel);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.pstrip::-webkit-scrollbar{display:none}
+.pcell{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px}
+.avatar{width:42px;height:42px;border-radius:50%;background:var(--panel2);border:2px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;
+  font-family:'Archivo';color:var(--haiku);overflow:hidden;flex-shrink:0}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.avatar.mod{border-color:var(--fable)}
+.pcell .pname{font-size:10px;color:var(--dim);max-width:56px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.avatar-pick{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+.avatar-pick .avatar{width:48px;height:48px;cursor:pointer}
+.avatar-pick span{font-size:12.5px;color:var(--dim)}
+
+/* ---------- Video grid ---------- */
+#videoGrid{display:none;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;
+  padding:8px 14px;background:#07080C;border-bottom:1px solid var(--line)}
+#videoGrid.on{display:grid}
+.vtile{position:relative;aspect-ratio:4/3;background:var(--panel2);border-radius:10px;
+  overflow:hidden;border:1px solid var(--line)}
+.vtile video{width:100%;height:100%;object-fit:cover;background:#000}
+.vtile .vname{position:absolute;left:6px;bottom:5px;font-size:10.5px;font-weight:600;
+  background:rgba(7,8,12,.65);border-radius:6px;padding:2px 7px}
+.vtile .vph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.vtile .vph .avatar{width:54px;height:54px}
+
 /* ---------- Toast / modal ---------- */
 #toast{position:fixed;bottom:calc(78px + var(--safe-b));left:50%;transform:translateX(-50%) translateY(8px);
   background:var(--panel2);border:1px solid var(--line);border-radius:99px;padding:9px 18px;font-size:13px;
@@ -186,6 +214,15 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
       <h1>Meet<em>OS</em></h1>
     </div>
     <div class="tagline">Multi-user meeting intelligence · live transcription is <b>free</b>, Haiku keeps the pulse, <span style="color:var(--fable);font-weight:600">Fable 5</span> does the deep thinking.</div>
+
+    <div class="card">
+      <h2>📷 Your photo <span style="font-weight:400;color:var(--faint);font-size:12px">(optional · shown to others)</span></h2>
+      <div class="avatar-pick">
+        <div class="avatar" id="avatarPreview" onclick="document.getElementById('avatarFile').click()">+</div>
+        <span>Tap to add a photo. Used as your tile in audio mode and your label in video.</span>
+        <input type="file" id="avatarFile" accept="image/*" style="display:none" onchange="pickAvatar(this)">
+      </div>
+    </div>
 
     <div class="card">
       <h2>🟣 Create a room <span style="font-weight:400;color:var(--faint);font-size:12px">(you become moderator)</span></h2>
@@ -225,9 +262,13 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
       <button class="rec-pill" id="recPill" onclick="toggleRec()">
         <span class="rec-dot"></span><span id="recLabel">Record</span>
       </button>
+      <button class="icon-btn" id="videoBtn" onclick="toggleVideo()" aria-label="Toggle video">🎥</button>
       <button class="icon-btn" onclick="openSettings()" aria-label="AI settings">⚙</button>
       <button class="icon-btn" onclick="shareRoom()" aria-label="Share room">⇪</button>
     </div>
+
+    <div class="pstrip" id="pstrip"></div>
+    <div id="videoGrid"></div>
 
     <div class="tabs">
       <button class="tab t-transcript active" onclick="showPane('transcript',this)">Transcript</button>
@@ -307,7 +348,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
 <div class="modal-bg" id="settingsModal">
   <div class="modal">
     <h3>⚙ AI settings</h3>
-    <p>Your Anthropic API key is stored only in this browser (localStorage) and sent straight to the API or your proxy — never to anyone else.</p>
+    <p><b>Only the moderator needs a key</b> — participants get all AI results synced for free. The key is stored only in this browser (localStorage) and sent straight to the API or your proxy — never to anyone else.</p>
     <div class="field"><input id="setKey" type="password" placeholder="sk-ant-… (leave blank to use server key)" autocomplete="off"></div>
     <h3 style="font-size:14px;margin:14px 0 8px">Tier 2 engine (Deep Synthesis)</h3>
     <label style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer">
@@ -483,6 +524,62 @@ drawLogo(document.getElementById("logoCanvas"));
 })();
 
 /* ============================================================
+   Avatar (photo) — compressed dataURL in localStorage + Firebase
+   ============================================================ */
+var MY_AVATAR = localStorage.getItem("meetos_avatar") || "";
+function pickAvatar(input) {
+  var file = input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    var img = new Image();
+    img.onload = function () {
+      var c = document.createElement("canvas"), size = 96;
+      c.width = size; c.height = size;
+      var ctx = c.getContext("2d");
+      var min = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - min) / 2, (img.height - min) / 2, min, min, 0, 0, size, size);
+      MY_AVATAR = c.toDataURL("image/jpeg", 0.7);
+      localStorage.setItem("meetos_avatar", MY_AVATAR);
+      renderAvatarPreview();
+      if (FIREBASE_OK && S.room)
+        db.ref("rooms/" + S.room + "/participants/" + S.uid + "/avatar").set(MY_AVATAR);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function renderAvatarPreview() {
+  var el = $("avatarPreview");
+  if (el) el.innerHTML = MY_AVATAR ? '<img src="' + MY_AVATAR + '" alt="">' : "+";
+}
+function initialsOf(name) {
+  return String(name || "?").trim().split(/\s+/).map(function (w) { return w[0]; })
+    .join("").slice(0, 2).toUpperCase();
+}
+function avatarHTML(p, extraClass) {
+  var cls = "avatar" + (p.role === "moderator" ? " mod" : "") + (extraClass ? " " + extraClass : "");
+  return '<div class="' + cls + '">' +
+    (p.avatar ? '<img src="' + p.avatar + '" alt="">' : esc(initialsOf(p.name))) + "</div>";
+}
+function renderPStrip() {
+  var strip = $("pstrip");
+  if (!strip) return;
+  var people = [];
+  var seen = {};
+  for (var uid in S.participants) {
+    people.push({ uid: uid, name: S.participants[uid].name,
+                  role: S.participants[uid].role, avatar: S.participants[uid].avatar });
+    seen[uid] = true;
+  }
+  if (!seen[S.uid]) people.unshift({ uid: S.uid, name: S.name, role: S.role, avatar: MY_AVATAR });
+  strip.innerHTML = people.map(function (p) {
+    return '<div class="pcell">' + avatarHTML(p) +
+      '<div class="pname">' + esc(p.uid === S.uid ? "You" : p.name) + "</div></div>";
+  }).join("");
+}
+
+/* ============================================================
    Helpers
    ============================================================ */
 function $(id) { return document.getElementById(id); }
@@ -529,6 +626,7 @@ function quickRejoin(code) {
   toast("Details filled — tap Join room");
 }
 renderRecent();
+renderAvatarPreview();
 
 /* ============================================================
    Room lifecycle (Firebase, with local fallback for demo)
@@ -579,18 +677,26 @@ function enterRoom(code, title, pin, name) {
   $("lobby").classList.remove("active"); $("room").classList.add("active");
   applyRolePermissions();
   refreshTierBadges();
+  renderPStrip();
+  if (!FIREBASE_OK) {
+    var n = $("aiNotice");
+    n.style.display = "block"; n.className = "notice warn";
+    n.innerHTML = "<b>Demo mode — Firebase not configured.</b> Participants can't see each other, sync or video until CONFIG.FIREBASE has real values. See README step 1.";
+    toast("⚠ Demo mode: no realtime sync — configure Firebase");
+  }
   renderCrossList();
   updateTokenEstimate();
   checkAIConfig();
   if (FIREBASE_OK) attachListeners(code);
   if (FIREBASE_OK) {
     var pref = db.ref("rooms/" + code + "/participants/" + S.uid);
-    pref.set({ name: name, role: S.role, joinedAt: Date.now() });
+    pref.set({ name: name, role: S.role, joinedAt: Date.now(), avatar: MY_AVATAR || null });
     pref.onDisconnect().remove();
   }
 }
 function leaveRoom() {
   stopRec();
+  stopVideo();
   detachListeners();
   if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/participants/" + S.uid).remove();
   S.room = null;
@@ -613,8 +719,16 @@ function attachListeners(code) {
   pRef.on("value", function (snap) {
     S.participants = snap.val() || {};
     $("partCount").textContent = Object.keys(S.participants).length || 1;
+    renderPStrip();
+    syncPeers();
   });
   S.listeners.push(pRef);
+  var puRef = db.ref(base + "/pulse");
+  puRef.on("value", function (snap) {
+    var v = snap.val();
+    if (v && v.points) renderPulse(v.points);
+  });
+  S.listeners.push(puRef);
   var sRef = db.ref(base + "/synthesis");
   sRef.limitToLast(1).on("child_added", function (snap) {
     var v = snap.val();
@@ -630,6 +744,8 @@ function applyRolePermissions() {
   var isMod = S.role === "moderator";
   $("synthBtn").disabled = !isMod;
   $("crossBtn").disabled = !isMod;
+  $("pulseBtn").disabled = !isMod;
+  $("pulseBtn").innerHTML = isMod ? "⚡ Refresh key points" : "⚡ Moderator refreshes — synced to all";
   $("synthLaunch").querySelector("p").innerHTML = isMod
     ? "Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented."
     : "Only the room moderator can run Deep Synthesis (token cost control). Results appear here for everyone.";
@@ -718,6 +834,130 @@ function showInterim(text) {
   }
   el.innerHTML = '<span class="who">' + esc(S.name) + '</span><p>' + esc(text) + '…</p>';
   $("transcriptScroll").scrollTop = $("transcriptScroll").scrollHeight;
+}
+
+/* ============================================================
+   Opt-in video — WebRTC mesh, Firebase signaling
+   Audio mode shows photo tiles; video replaces them when on.
+   ============================================================ */
+var RTC = { on: false, stream: null, peers: {}, sigRef: null, joinedAt: 0 };
+var ICE = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+function toggleVideo() { RTC.on ? stopVideo() : startVideo(); }
+
+function startVideo() {
+  if (!FIREBASE_OK) { toast("Video needs Firebase configured (realtime signaling)"); return; }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast("Camera not available in this browser"); return;
+  }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } }, audio: true })
+    .then(function (stream) {
+      RTC.stream = stream; RTC.on = true; RTC.joinedAt = Date.now();
+      $("videoBtn").style.borderColor = "var(--rec)";
+      $("videoGrid").classList.add("on");
+      addTile(S.uid, S.name, MY_AVATAR, stream, true);
+      listenSignals();
+      syncPeers();
+      db.ref("rooms/" + S.room + "/participants/" + S.uid + "/video").set(true);
+      toast("Video on — mesh works best with ≤4 people");
+    })
+    .catch(function () { toast("Camera/mic permission denied"); });
+}
+function stopVideo() {
+  if (!RTC.on && !RTC.stream) return;
+  RTC.on = false;
+  if (RTC.stream) { RTC.stream.getTracks().forEach(function (t) { t.stop(); }); RTC.stream = null; }
+  for (var uid in RTC.peers) closePeer(uid);
+  if (RTC.sigRef) { RTC.sigRef.off(); RTC.sigRef = null; }
+  $("videoGrid").innerHTML = ""; $("videoGrid").classList.remove("on");
+  $("videoBtn").style.borderColor = "";
+  if (FIREBASE_OK && S.room)
+    db.ref("rooms/" + S.room + "/participants/" + S.uid + "/video").set(false);
+}
+function syncPeers() {
+  if (!RTC.on) return;
+  for (var uid in S.participants) {
+    if (uid === S.uid) continue;
+    var wantsVideo = S.participants[uid].video;
+    if (wantsVideo && !RTC.peers[uid]) ensurePeer(uid);
+    if (!wantsVideo && RTC.peers[uid]) closePeer(uid);
+  }
+  // drop peers who left the room
+  for (var pid in RTC.peers) if (!S.participants[pid]) closePeer(pid);
+}
+function ensurePeer(uid) {
+  var pc = new RTCPeerConnection(ICE);
+  RTC.peers[uid] = pc;
+  RTC.stream.getTracks().forEach(function (t) { pc.addTrack(t, RTC.stream); });
+  pc.onicecandidate = function (e) {
+    if (e.candidate) sendSignal(uid, "ice", JSON.stringify(e.candidate));
+  };
+  pc.ontrack = function (e) {
+    var p = S.participants[uid] || { name: "Guest" };
+    addTile(uid, p.name, p.avatar, e.streams[0], false);
+  };
+  pc.onconnectionstatechange = function () {
+    if (pc.connectionState === "failed" || pc.connectionState === "closed") closePeer(uid);
+  };
+  // deterministic initiator: lexically smaller uid offers
+  if (S.uid < uid) {
+    pc.createOffer().then(function (offer) {
+      return pc.setLocalDescription(offer);
+    }).then(function () {
+      sendSignal(uid, "offer", JSON.stringify(pc.localDescription));
+    });
+  }
+}
+function closePeer(uid) {
+  var pc = RTC.peers[uid];
+  if (pc) { try { pc.close(); } catch (e) {} }
+  delete RTC.peers[uid];
+  var tile = $("vtile-" + uid);
+  if (tile) tile.remove();
+}
+function sendSignal(to, type, data) {
+  db.ref("rooms/" + S.room + "/signals").push({
+    from: S.uid, to: to, type: type, data: data, at: Date.now()
+  });
+}
+function listenSignals() {
+  if (RTC.sigRef) RTC.sigRef.off();
+  RTC.sigRef = db.ref("rooms/" + S.room + "/signals");
+  RTC.sigRef.on("child_added", function (snap) {
+    var m = snap.val();
+    if (!m || m.to !== S.uid || m.at < RTC.joinedAt - 5000 || !RTC.on) return;
+    snap.ref.remove(); // consume
+    var pc = RTC.peers[m.from];
+    if (m.type === "offer") {
+      if (!pc) { ensurePeer(m.from); pc = RTC.peers[m.from]; }
+      pc.setRemoteDescription(JSON.parse(m.data)).then(function () {
+        return pc.createAnswer();
+      }).then(function (ans) {
+        return pc.setLocalDescription(ans);
+      }).then(function () {
+        sendSignal(m.from, "answer", JSON.stringify(pc.localDescription));
+      }).catch(function (e) { console.warn("offer handling:", e); });
+    } else if (m.type === "answer" && pc) {
+      pc.setRemoteDescription(JSON.parse(m.data)).catch(function (e) { console.warn(e); });
+    } else if (m.type === "ice" && pc) {
+      pc.addIceCandidate(JSON.parse(m.data)).catch(function (e) { console.warn(e); });
+    }
+  });
+}
+function addTile(uid, name, avatar, stream, isLocal) {
+  var grid = $("videoGrid");
+  var tile = $("vtile-" + uid);
+  if (!tile) {
+    tile = document.createElement("div");
+    tile.className = "vtile"; tile.id = "vtile-" + uid;
+    grid.appendChild(tile);
+  }
+  tile.innerHTML = '<video playsinline autoplay ' + (isLocal ? "muted" : "") + '></video>' +
+    '<div class="vph">' + avatarHTML({ name: name, avatar: avatar }) + "</div>" +
+    '<div class="vname">' + esc(isLocal ? "You" : name) + "</div>";
+  var v = tile.querySelector("video");
+  v.srcObject = stream;
+  v.onplaying = function () { var ph = tile.querySelector(".vph"); if (ph) ph.style.display = "none"; };
 }
 
 /* ============================================================
@@ -814,9 +1054,14 @@ function renderActions() {
    ============================================================ */
 function checkAIConfig() {
   var n = $("aiNotice");
+  if (S.role !== "moderator") {
+    n.style.display = "block"; n.className = "notice";
+    n.textContent = "No API key needed as a participant — the moderator runs AI and results sync to everyone.";
+    return;
+  }
   if (!CONFIG.PROXY_URL && !SETTINGS.userKey) {
     n.style.display = "block"; n.className = "notice warn";
-    n.innerHTML = "AI features need a key. Tap ⚙ Settings and paste your Anthropic API key (stored only on this device).";
+    n.innerHTML = "Moderator: AI features need a key. Tap ⚙ Settings and paste your Anthropic API key (stored only on this device).";
   } else if (CONFIG.PROXY_URL && SETTINGS.userKey) {
     n.style.display = "block"; n.className = "notice";
     n.textContent = "Using your personal API key (BYOK) — tokens billed to your account.";
@@ -876,6 +1121,7 @@ function updateTokenEstimate() {
    Tier 1 — Quick Pulse (Haiku)
    ============================================================ */
 function runQuickPulse() {
+  if (S.role !== "moderator") { toast("The moderator runs AI — results appear here for everyone"); return; }
   if (!S.transcript.length) { toast("Nothing to summarize yet"); return; }
   var recent = transcriptText(S.transcript).slice(-3000);
   var prompt = "You summarize live meetings. From this recent transcript window, extract 3-5 key points as short phrases (max 8 words each). Respond ONLY with a JSON array of strings, no markdown, no preamble.\n\nTRANSCRIPT:\n" + recent;
@@ -884,12 +1130,18 @@ function runQuickPulse() {
   callClaude(CONFIG.MODEL_HAIKU, prompt, 400)
     .then(function (text) {
       var points = parseJSONLoose(text);
-      $("pulseChips").innerHTML = points.map(function (p) {
-        return '<span class="chip">' + esc(p) + '</span>';
-      }).join("");
+      if (FIREBASE_OK && S.room)
+        db.ref("rooms/" + S.room + "/pulse").set({ points: points, at: Date.now() });
+      else renderPulse(points);
     })
     .catch(function (e) { toast("Pulse failed: " + e.message); })
     .then(function () { btn.disabled = false; btn.innerHTML = "⚡ Refresh key points"; });
+}
+
+function renderPulse(points) {
+  $("pulseChips").innerHTML = (points || []).map(function (p) {
+    return '<span class="chip">' + esc(p) + '</span>';
+  }).join("");
 }
 
 /* ============================================================
