@@ -309,6 +309,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
         </select>
         <span style="margin-left:auto;font-size:11px;color:var(--faint)">transcript shows English</span>
       </div>
+      <div class="notice warn" id="langNote" style="display:none;margin:10px 16px 0;font-size:12px"></div>
       <div class="scroll" id="transcriptScroll">
         <div class="empty" id="transcriptEmpty">No transcript yet.<br><b>Tap Record</b> — speech stays free, no tokens spent.</div>
         <div id="transcriptList"></div>
@@ -379,7 +380,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
 <div class="modal-bg" id="settingsModal">
   <div class="modal">
     <h3>⚙ AI settings</h3>
-    <p><b>Only the moderator needs a key</b> — participants get all AI results synced for free. The key is stored only in this browser (localStorage) and sent straight to the API or your proxy — never to anyone else.</p>
+    <p><b>Only the moderator needs a key</b> — participants get all AI results synced for free. English-only meetings need no key at all for transcripts; the key powers translation of other languages, Quick Pulse and Deep Synthesis. The key is stored only in this browser (localStorage) and sent straight to the API or your proxy — never to anyone else.</p>
     <div class="field"><input id="setKey" type="password" placeholder="sk-ant-… (leave blank to use server key)" autocomplete="off"></div>
     <h3 style="font-size:14px;margin:14px 0 8px">Tier 2 engine (Deep Synthesis)</h3>
     <label style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer">
@@ -896,11 +897,40 @@ function setLang(code) {
   MY_LANG = code;
   localStorage.setItem("meetos_lang", code);
   if (S.recOn) { stopRec(); startRec(); } // hot-swap recognizer language
+  updateLangNote();
   toast("Speaking language: " + code);
+}
+var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+             (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function updateLangNote() {
+  var n = $("langNote");
+  if (!n) return;
+  var isEn = MY_LANG.indexOf("en") === 0;
+  if (isEn) { n.style.display = "none"; return; }
+  var weakOnIOS = ["te-", "ta-", "kn-", "ml-", "mr-", "bn-", "gu-", "ur-"].some(function (p) {
+    return MY_LANG.indexOf(p) === 0;
+  });
+  var msg = "ℹ️ <b>English needs no AI key.</b> Speaking other languages is also free to capture, " +
+    "but translating them into the English transcript uses the <b>moderator's Anthropic API key</b> " +
+    "(Haiku, batched — very low cost). No key → lines stay in the original language.";
+  if (IS_IOS && weakOnIOS) {
+    msg = "⚠ <b>iPhone limitation:</b> Safari's speech engine may not recognize " +
+      "this language (e.g. Telugu) and lines may never appear. For reliable English " +
+      "transcripts on iPhone, <b>speak in English</b> (Hindi also works). " +
+      "Telugu &amp; other Indian languages work best on <b>Android Chrome</b>.<br><br>" + msg;
+    n.className = "notice warn";
+  } else {
+    n.className = "notice";
+  }
+  n.style.display = "block";
+  n.style.margin = "10px 16px 0";
+  n.style.fontSize = "12px";
+  n.innerHTML = msg;
 }
 function initLangSel() {
   var sel = $("langSel");
   if (sel) sel.value = MY_LANG;
+  updateLangNote();
 }
 function toggleRec() { S.recOn ? stopRec() : startRec(); }
 function startRec() {
@@ -1347,8 +1377,12 @@ function translateTick() {
         }
       });
     })
-    .catch(function () {
+    .catch(function (e) {
       pending.forEach(function (l) { l._xq = false; }); // retry next tick
+      if (!XLAT.warnedAt || Date.now() - XLAT.warnedAt > 60000) {
+        XLAT.warnedAt = Date.now();
+        toast("Translation failing: " + String(e.message || e).slice(0, 90));
+      }
     })
     .then(function () { XLAT.busy = false; });
 }
