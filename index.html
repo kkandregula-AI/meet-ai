@@ -370,7 +370,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
           <div id="crossResult"></div>
         </div>
 
-        <div style="height:30px"></div>
+        <div class="foot" style="margin:26px 0 18px">Designed &amp; Architected by Krishnamurthy Kandregula · Made by Claude</div>
       </div>
     </div>
   </div>
@@ -1530,8 +1530,10 @@ function renderSynthesisSheet(d, by, at, targetId, model) {
   html += section("Tension / unresolved", d.tensions, function (x) {
     return "<li>" + esc(x.topic) + '<span class="sub">' + esc(x.parties) + " · " + esc(x.status) + "</span></li>";
   });
+  html += '<div style="font-size:9.5px;color:var(--faint);margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">Designed &amp; Architected by Krishnamurthy Kandregula · Made by Claude</div>';
   html += '<div class="sheet-tools">' +
-    '<button class="btn btn-ghost" onclick="exportSynthesis()">Copy minutes</button>' +
+    '<button class="btn btn-ghost" onclick="exportSynthesis()">Copy</button>' +
+    '<button class="btn btn-amber" onclick="exportSynthesisPDF()">📄 PDF</button>' +
     '<button class="btn btn-fable" onclick="shareSynthesis()">Share</button></div></div>';
   $(targetId).innerHTML = html;
   window._lastSynthesis = { d: d, by: by, at: at };
@@ -1552,6 +1554,7 @@ function synthesisMarkdown() {
   });
   out += block("Open questions", d.open_questions, function (x) { return "- " + x; });
   out += block("Tension / unresolved", d.tensions, function (x) { return "- " + x.topic + " (" + x.parties + " · " + x.status + ")"; });
+  out += "---\n_Designed & Architected by Krishnamurthy Kandregula · Made by Claude_\n";
   return out;
 }
 function exportSynthesis() { copyText(synthesisMarkdown()); toast("Minutes copied as Markdown"); }
@@ -1609,6 +1612,199 @@ function toggleSample() {
     sheet.style.opacity = "0.92";
   }
   $("sampleBtn").textContent = "✕ Hide sample";
+}
+
+/* ============================================================
+   PDF export — branded meeting minutes (jsPDF, lazy-loaded)
+   ============================================================ */
+var PDF_COLORS = {
+  ink: [17, 19, 26], violet: [109, 78, 217], amber: [196, 124, 17],
+  red: [206, 62, 62], teal: [16, 148, 126], text: [34, 38, 46],
+  gray: [109, 115, 128], line: [225, 227, 233]
+};
+function loadJsPDF() {
+  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+  return new Promise(function (res, rej) {
+    var sc = document.createElement("script");
+    sc.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+    sc.onload = function () { res(window.jspdf.jsPDF); };
+    sc.onerror = function () { rej(new Error("Could not load PDF library")); };
+    document.head.appendChild(sc);
+  });
+}
+function circleAvatarPNG(p, size) {
+  return new Promise(function (res) {
+    var c = document.createElement("canvas");
+    c.width = size; c.height = size;
+    var ctx = c.getContext("2d");
+    function finish() { res(c.toDataURL("image/png")); }
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+    ctx.closePath();
+    if (p.avatar) {
+      var img = new Image();
+      img.onload = function () {
+        ctx.save(); ctx.clip();
+        ctx.drawImage(img, 0, 0, size, size);
+        ctx.restore();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = p.role === "moderator" ? "#6D4ED9" : "#C9CDD6";
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+        ctx.stroke();
+        finish();
+      };
+      img.onerror = function () { p.avatar = null; circleAvatarPNG(p, size).then(res); };
+      img.src = p.avatar;
+    } else {
+      ctx.fillStyle = p.role === "moderator" ? "#6D4ED9" : "#2A2F3A";
+      ctx.fill();
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = "bold " + (size * 0.36) + "px Archivo, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(initialsOf(p.name), size / 2, size / 2 + 1);
+      finish();
+    }
+  });
+}
+function pdfParticipants() {
+  var seen = {}, list = [];
+  function add(name, role, avatar) {
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    list.push({ name: name, role: role || "participant", avatar: avatar || null });
+  }
+  add(S.name, S.role, MY_AVATAR);
+  for (var uid in S.participants)
+    add(S.participants[uid].name, S.participants[uid].role, S.participants[uid].avatar);
+  S.transcript.forEach(function (l) { add(l.speaker, "participant", null); });
+  return list;
+}
+function exportSynthesisPDF() {
+  var syn = window._lastSynthesis;
+  if (!syn) { toast("Run Deep Synthesis first"); return; }
+  toast("Building PDF…");
+  var people = pdfParticipants();
+  Promise.all([loadJsPDF()].concat(people.map(function (p) { return circleAvatarPNG(p, 128); })))
+    .then(function (results) {
+      var jsPDF = results[0], avatars = results.slice(1);
+      var doc = new jsPDF({ unit: "pt", format: "a4" });
+      var W = 595, M = 48, y = 0, page = 1;
+      var d = syn.d;
+      function footer() {
+        doc.setFontSize(8); doc.setTextColor.apply(doc, [PDF_COLORS.gray[0], PDF_COLORS.gray[1], PDF_COLORS.gray[2]]);
+        doc.text("Generated by MeetOS \u00B7 Designed & Architected by Krishnamurthy Kandregula \u00B7 Made by Claude", M, 818);
+        doc.text("Page " + page, W - M, 818, { align: "right" });
+      }
+      function newPageIf(need) {
+        if (y + need > 790) { footer(); doc.addPage(); page++; y = 56; }
+      }
+      function sectionHead(title) {
+        newPageIf(40);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(9.5);
+        doc.setTextColor.apply(doc, PDF_COLORS.violet);
+        doc.text(title.toUpperCase(), M, y);
+        doc.setDrawColor.apply(doc, PDF_COLORS.line);
+        doc.setLineWidth(0.8);
+        doc.line(M, y + 6, W - M, y + 6);
+        y += 22;
+      }
+      function bodyText(txt, opts) {
+        opts = opts || {};
+        doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+        doc.setFontSize(opts.size || 10.5);
+        doc.setTextColor.apply(doc, opts.color || PDF_COLORS.text);
+        var lines = doc.splitTextToSize(txt, W - M * 2 - (opts.indent || 0));
+        newPageIf(lines.length * 14 + 6);
+        doc.text(lines, M + (opts.indent || 0), y);
+        y += lines.length * 14 + (opts.gap == null ? 6 : opts.gap);
+      }
+      // ---- header band ----
+      doc.setFillColor.apply(doc, PDF_COLORS.ink);
+      doc.rect(0, 0, W, 118, "F");
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+      doc.setTextColor(167, 139, 250);
+      doc.text("MEETOS  \u00B7  MEETING MINUTES", M, 38);
+      doc.setFontSize(21); doc.setTextColor(255, 255, 255);
+      doc.text(doc.splitTextToSize($("roomTitle").textContent, W - M * 2), M, 64);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.5);
+      doc.setTextColor(160, 166, 178);
+      var mod = people.filter(function (p) { return p.role === "moderator"; })
+                      .map(function (p) { return p.name; }).join(", ") || S.name;
+      doc.text("Room " + (S.room || "\u2014") + "  \u00B7  " + new Date(syn.at).toLocaleString() +
+               "  \u00B7  Moderator: " + mod + "  \u00B7  Engine: claude-fable-5", M, 86);
+      doc.setTextColor(120, 126, 138);
+      doc.text(S.transcript.length + " transcript lines analysed", M, 102);
+      y = 150;
+      // ---- participants ----
+      sectionHead("Participants (" + people.length + ")");
+      var ax = M, aSize = 38, perRow = Math.floor((W - M * 2) / 86);
+      people.forEach(function (p, i) {
+        if (i > 0 && i % perRow === 0) { ax = M; y += 72; }
+        newPageIf(80);
+        doc.addImage(avatars[i], "PNG", ax, y, aSize, aSize);
+        doc.setFont("helvetica", p.role === "moderator" ? "bold" : "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor.apply(doc, p.role === "moderator" ? PDF_COLORS.violet : PDF_COLORS.gray);
+        var nm = p.name.length > 14 ? p.name.slice(0, 13) + "\u2026" : p.name;
+        doc.text(nm + (p.role === "moderator" ? " \u2605" : ""), ax + aSize / 2, y + aSize + 11, { align: "center" });
+        ax += 86;
+      });
+      y += 80;
+      // ---- executive summary ----
+      if (d.executive_summary && d.executive_summary.length) {
+        sectionHead("Executive summary");
+        d.executive_summary.forEach(function (t) { bodyText("\u2022  " + t); });
+        y += 8;
+      }
+      // ---- decisions ----
+      if (d.decisions && d.decisions.length) {
+        sectionHead("Decisions");
+        d.decisions.forEach(function (x) {
+          bodyText(x.decision, { bold: true, gap: 1 });
+          bodyText("decided by " + x.decided_by, { size: 8.5, color: PDF_COLORS.gray, indent: 10, gap: 9 });
+        });
+        y += 8;
+      }
+      // ---- action items ----
+      if (d.action_items && d.action_items.length) {
+        sectionHead("Action items");
+        d.action_items.forEach(function (a) {
+          newPageIf(46);
+          var dot = a.confidence === "high" ? PDF_COLORS.teal :
+                    a.confidence === "low" ? PDF_COLORS.red : PDF_COLORS.amber;
+          doc.setFillColor.apply(doc, dot);
+          doc.circle(M + 4, y - 3, 3.4, "F");
+          bodyText(a.task, { bold: true, indent: 16, gap: 1 });
+          bodyText("Owner: " + (a.owner || "unassigned") +
+                   (a.deadline ? "  \u00B7  Due: " + a.deadline : "") +
+                   "  \u00B7  Confidence: " + a.confidence +
+                   (a.rationale ? "  \u00B7  " + a.rationale : ""),
+                   { size: 8.5, color: PDF_COLORS.gray, indent: 16, gap: 11 });
+        });
+        y += 8;
+      }
+      // ---- open questions ----
+      if (d.open_questions && d.open_questions.length) {
+        sectionHead("Open questions");
+        d.open_questions.forEach(function (q) { bodyText("?  " + q); });
+        y += 8;
+      }
+      // ---- tensions ----
+      if (d.tensions && d.tensions.length) {
+        sectionHead("Tension / unresolved");
+        d.tensions.forEach(function (t) {
+          bodyText(t.topic, { bold: true, gap: 1 });
+          bodyText(t.parties + "  \u00B7  " + t.status, { size: 8.5, color: PDF_COLORS.gray, gap: 9 });
+        });
+      }
+      footer();
+      var fname = "meetos-" + (S.room || "meeting") + "-minutes.pdf";
+      try { doc.save(fname); }
+      catch (e) { window.open(doc.output("datauristring")); }
+      toast("PDF ready: " + fname);
+    })
+    .catch(function (e) { toast("PDF failed: " + String(e.message || e).slice(0, 80)); });
 }
 
 /* ============================================================
