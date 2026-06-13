@@ -14,7 +14,7 @@
 <style>
 /* ============================================================
    MeetOS · Designed & Architected by Krishnamurthy Kandregula
-   Made by Claude · Fable 5 Deep Synthesis Edition
+   Made by Claude · Haiku Intelligence Edition
    ============================================================ */
 :root{
   --ink:#0B0D11; --panel:#13161C; --panel2:#181C24; --line:#242A35;
@@ -222,7 +222,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
       <canvas class="brand-mark" id="logoCanvas" width="80" height="80"></canvas>
       <h1>Meet<em>OS</em></h1>
     </div>
-    <div class="tagline">Multi-user meeting intelligence · live transcription is <b>free</b>, Haiku keeps the pulse, <span style="color:var(--fable);font-weight:600">Fable 5</span> does the deep thinking.</div>
+    <div class="tagline">Multi-user meeting intelligence · live transcription is <b>free</b>; <span style="color:var(--haiku);font-weight:600">Claude Haiku</span> handles the synopsis, action items and deep analysis.</div>
 
     <div class="card">
       <h2>📷 Your photo <span style="font-weight:400;color:var(--faint);font-size:12px">(optional · shown to others)</span></h2>
@@ -257,7 +257,7 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
     <button class="btn btn-ghost" onclick="openSettings()">⚙ AI settings · key &amp; Tier 2 model</button>
 
     <div class="foot">Designed &amp; Architected by Krishnamurthy Kandregula · Made by Claude<br>
-    Tier 0 Web Speech · Tier 1 Claude Haiku · Tier 2 Claude Fable 5</div>
+    Tier 0 Web Speech (free) · Claude Haiku for AI synopsis &amp; analysis</div>
   </div>
 
   <!-- ================= ROOM ================= -->
@@ -351,11 +351,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
         </div>
 
         <div class="intel-sec" id="secDeep">
-          <h3>Deep synopsis · senior management <span class="tier-tag tier-fable" id="tier2Badge">TIER 2 · FABLE 5</span></h3>
+          <h3>Deep synopsis · senior management <span class="tier-tag tier-haiku" id="tier2Badge">HAIKU</span></h3>
           <div class="synth-launch" id="synthLaunch">
             <strong style="font-size:14px">Structured minutes, reasoned — not guessed.</strong>
-            <p>Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented.</p>
-            <button class="btn btn-fable" id="synthBtn" onclick="runDeepSynthesis()">◈ Run Deep Synthesis</button>
+            <p>Claude Haiku reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented.</p>
+            <button class="btn btn-fable" id="synthBtn" onclick="runDeepSynthesis()">◈ Run Deep Synopsis</button>
             <div class="token-est" id="tokenEst">~<span class="mono">0</span> input tokens</div>
             <button class="btn btn-ghost" style="margin-top:10px;font-size:13px" id="sampleBtn" onclick="toggleSample()">👁 See a sample result (no tokens used)</button>
           </div>
@@ -364,8 +364,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
         </div>
 
         <div class="intel-sec" id="secCross">
-          <h3>Cross-meeting memory <span class="tier-tag tier-fable" id="tier2BadgeCross">TIER 2 · FABLE 5</span></h3>
-          <div class="notice">Select up to 4 past rooms. Fable 5 finds recurring blockers, slipping action items and decision reversals across meetings.</div>
+          <h3>Cross-meeting memory <span class="tier-tag tier-haiku" id="tier2BadgeCross">HAIKU</span></h3>
+          <div class="notice">Select up to 4 past rooms. Claude Haiku finds recurring blockers, slipping action items and decision reversals across meetings.</div>
           <div class="cross-list" id="crossList"></div>
           <button class="btn btn-ghost" id="crossBtn" onclick="runCrossSynthesis()">◈ Synthesize across meetings</button>
           <div id="crossResult"></div>
@@ -398,15 +398,6 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
     <h3>⚙ AI settings</h3>
     <p><b>Only the moderator needs a key</b> — participants get all AI results synced for free. English-only meetings need no key at all for transcripts; the key powers translation of other languages, Quick Pulse and Deep Synthesis. The key is stored only in this browser (localStorage) and sent straight to the API or your proxy — never to anyone else.</p>
     <div class="field"><input id="setKey" type="password" placeholder="sk-ant-… (leave blank to use server key)" autocomplete="off"></div>
-    <h3 style="font-size:14px;margin:14px 0 8px">Tier 2 engine (Deep Synthesis)</h3>
-    <label style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer">
-      <input type="radio" name="tier2pick" value="fable" style="accent-color:var(--fable);margin-top:3px">
-      <span><b style="color:var(--fable)">Fable 5</b> — deepest reasoning, best confidence judgements. Premium tokens.</span>
-    </label>
-    <label style="display:flex;gap:10px;align-items:flex-start;padding:9px 4px;cursor:pointer">
-      <input type="radio" name="tier2pick" value="haiku" style="accent-color:var(--haiku);margin-top:3px">
-      <span><b style="color:var(--haiku)">Haiku saver</b> — same structured minutes at a fraction of the cost. Confidence ratings may be less precise.</span>
-    </label>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
       <button class="btn btn-fable" onclick="saveSettings()">Save</button>
@@ -442,8 +433,7 @@ var CONFIG = {
   // the proxy uses it instead of the server's ANTHROPIC_API_KEY.
   PROXY_URL: "/api/claude",          // set to "" to use direct browser mode
   SERVER_HAS_KEY: false,             // set true ONLY if ANTHROPIC_API_KEY is set in Vercel env vars
-  MODEL_FABLE: "claude-fable-5",
-  MODEL_HAIKU: "claude-haiku-4-5-20251001",
+  MODEL_HAIKU: "claude-haiku-4-5-20251001",   // all AI runs on Haiku
   FIREBASE: {
     apiKey: "AIzaSyA6iWkSalpENG7V16vI1OYmp5-53pURnK0",
     authDomain: "meet-ai-fc4c2.firebaseapp.com",
@@ -480,46 +470,30 @@ localStorage.setItem("meetos_uid", S.uid);
    Runtime settings — BYOK key + Tier 2 model (user-chosen)
    ============================================================ */
 var SETTINGS = {
-  userKey: localStorage.getItem("meetos_user_key") || "",
-  tier2Model: localStorage.getItem("meetos_tier2") || CONFIG.MODEL_FABLE
+  userKey: localStorage.getItem("meetos_user_key") || ""
 };
-function tier2ModelId() {
-  return SETTINGS.tier2Model === "haiku" || SETTINGS.tier2Model === CONFIG.MODEL_HAIKU
-    ? CONFIG.MODEL_HAIKU : CONFIG.MODEL_FABLE;
-}
-function tier2Label() {
-  return tier2ModelId() === CONFIG.MODEL_FABLE ? "Fable 5" : "Haiku (saver)";
-}
+function tier2ModelId() { return CONFIG.MODEL_HAIKU; }
+function tier2Label() { return "Haiku"; }
 function openSettings() {
   $("setKey").value = SETTINGS.userKey;
-  var radios = document.getElementsByName("tier2pick");
-  for (var i = 0; i < radios.length; i++)
-    radios[i].checked = (radios[i].value === (tier2ModelId() === CONFIG.MODEL_FABLE ? "fable" : "haiku"));
   $("settingsModal").classList.add("show");
 }
 function saveSettings() {
   SETTINGS.userKey = $("setKey").value.trim();
-  var radios = document.getElementsByName("tier2pick");
-  for (var i = 0; i < radios.length; i++)
-    if (radios[i].checked) SETTINGS.tier2Model = radios[i].value === "haiku" ? CONFIG.MODEL_HAIKU : CONFIG.MODEL_FABLE;
   localStorage.setItem("meetos_user_key", SETTINGS.userKey);
-  localStorage.setItem("meetos_tier2", SETTINGS.tier2Model);
   $("settingsModal").classList.remove("show");
   refreshTierBadges();
   updateTokenEstimate();
   checkAIConfig();
-  toast("Settings saved — Tier 2: " + tier2Label());
+  toast("Settings saved");
 }
 function closeSettings() { $("settingsModal").classList.remove("show"); }
 function refreshTierBadges() {
   var b = $("tier2Badge"), b2 = $("tier2BadgeCross");
-  var fable = tier2ModelId() === CONFIG.MODEL_FABLE;
-  var txt = "TIER 2 · " + (fable ? "FABLE 5" : "HAIKU SAVER");
-  var cls = "tier-tag " + (fable ? "tier-fable" : "tier-haiku");
-  if (b) { b.textContent = txt; b.className = cls; }
-  if (b2) { b2.textContent = txt; b2.className = cls; }
+  if (b) { b.textContent = "HAIKU"; b.className = "tier-tag tier-haiku"; }
+  if (b2) { b2.textContent = "HAIKU"; b2.className = "tier-tag tier-haiku"; }
   var sb = $("synthBtn");
-  if (sb && !sb.disabled) sb.innerHTML = "◈ Run Deep Synthesis (" + tier2Label() + ")";
+  if (sb && !sb.disabled) sb.innerHTML = "◈ Run Deep Synopsis";
 }
 
 /* ============================================================
@@ -816,10 +790,10 @@ function applyRolePermissions() {
   $("pulseBtn").disabled = !isMod;
   $("pulseBtn").innerHTML = isMod ? "⚡ Refresh key points" : "⚡ Moderator refreshes — synced to all";
   $("endBtn").style.display = isMod ? "" : "none";
-  $("secDeep").style.display = isMod ? "" : "none";   // Fable deep synopsis:
+  $("secDeep").style.display = isMod ? "" : "none";   // Haiku deep synopsis:
   $("secCross").style.display = isMod ? "" : "none";  // senior-management view, moderator only
   $("synthLaunch").querySelector("p").innerHTML = isMod
-    ? "Fable 5 reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented."
+    ? "Claude Haiku reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented."
     : "Only the room moderator can run Deep Synthesis (token cost control). Results appear here for everyone.";
 }
 function shareRoom() {
@@ -1341,7 +1315,7 @@ function renderActions() {
       '<span onclick="openAssign(\'' + k + '\')" style="cursor:pointer">👤 ' + (a.owner ? esc(a.owner) : "assign") + '</span>' +
       (a.deadline ? '<span>📅 ' + esc(a.deadline) + '</span>' : "") +
       '<span class="conf conf-' + esc(a.confidence || "high") + '">● ' + esc(a.confidence || "high") + '</span>' +
-      '<span style="color:var(--faint)">' + (a.source === "fable" ? "◈ Fable 5" : a.source === "haiku" ? "⚡ Haiku draft" : "manual") + '</span>' +
+      '<span style="color:var(--faint)">' + (a.source === "fable" ? "◈ Haiku" : a.source === "haiku" ? "⚡ Haiku draft" : "manual") + '</span>' +
       '</div></div></div>';
   }
   $("actionList").innerHTML = html;
@@ -1414,7 +1388,7 @@ function updateTokenEstimate() {
   var full = transcriptText(S.transcript) + "\n" +
              S.chat.map(function (c) { return c.who + ": " + c.text; }).join("\n");
   $("tokenEst").innerHTML = "~<span class='mono'>" + estimateTokens(full).toLocaleString() +
-    "</span> input tokens · " + tier2Label() + " fires once, on demand";
+    "</span> input tokens · Haiku, on demand";
 }
 
 /* ============================================================
@@ -1528,7 +1502,7 @@ function actionExists(task) {
 }
 
 /* ============================================================
-   Tier 2 — Deep Synthesis (Fable 5)
+   Deep Synopsis (Haiku) — senior-management view
    ============================================================ */
 function buildSynthesisPrompt(tText, cText, names) {
   return "You are the meeting intelligence engine of MeetOS. Analyze the full meeting below and produce structured minutes.\n\n" +
@@ -1557,7 +1531,7 @@ function runDeepSynthesis() {
   }
   var prompt = buildSynthesisPrompt(tText, cText, names);
   var btn = $("synthBtn");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> ' + tier2Label() + ' is reasoning…';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Haiku is analysing…';
   callClaude(tier2ModelId(), prompt, 4000)
     .then(function (text) {
       var data = parseJSONLoose(text);
@@ -1575,7 +1549,7 @@ function runDeepSynthesis() {
       toast("Deep synthesis complete");
     })
     .catch(function (e) { toast("Synthesis failed: " + e.message); })
-    .then(function () { btn.disabled = false; btn.innerHTML = "◈ Run Deep Synthesis (" + tier2Label() + ")"; });
+    .then(function () { btn.disabled = false; btn.innerHTML = "◈ Run Deep Synopsis"; });
 }
 function renderSynthesisSheet(d, by, at, targetId, model) {
   var when = new Date(at);
@@ -1616,7 +1590,7 @@ function renderSynthesisSheet(d, by, at, targetId, model) {
 function synthesisMarkdown() {
   var s = window._lastSynthesis; if (!s) return "";
   var d = s.d, out = "# Minutes — " + $("roomTitle").textContent + "\n";
-  out += "_Generated by MeetOS · " + tier2ModelId() + " · " + new Date(s.at).toLocaleString() + "_\n\n";
+  out += "_Generated by MeetOS · Claude Haiku · " + new Date(s.at).toLocaleString() + "_\n\n";
   function block(title, items, fmt) {
     if (!items || !items.length) return "";
     return "## " + title + "\n" + items.map(fmt).join("\n") + "\n\n";
@@ -1676,7 +1650,7 @@ function toggleSample() {
     return;
   }
   var keep = window._lastSynthesis;        // don't let the sample hijack export
-  renderSynthesisSheet(SAMPLE_SYNTH, "Sample", Date.now(), "synthSample", "claude-fable-5");
+  renderSynthesisSheet(SAMPLE_SYNTH, "Sample", Date.now(), "synthSample", CONFIG.MODEL_HAIKU);
   window._lastSynthesis = keep;
   var sheet = box.querySelector(".sheet");
   if (sheet) {
@@ -1807,7 +1781,7 @@ function exportSynthesisPDF() {
       var mod = people.filter(function (p) { return p.role === "moderator"; })
                       .map(function (p) { return p.name; }).join(", ") || S.name;
       doc.text("Room " + (S.room || "\u2014") + "  \u00B7  " + new Date(syn.at).toLocaleString() +
-               "  \u00B7  Moderator: " + mod + "  \u00B7  Engine: claude-fable-5", M, 86);
+               "  \u00B7  Moderator: " + mod + "  \u00B7  Engine: claude-haiku", M, 86);
       doc.setTextColor(120, 126, 138);
       doc.text(S.transcript.length + " transcript lines analysed", M, 102);
       y = 150;
@@ -1883,7 +1857,7 @@ function exportSynthesisPDF() {
 }
 
 /* ============================================================
-   Tier 2 — Cross-meeting memory (Fable 5)
+   Cross-meeting memory (Haiku)
    ============================================================ */
 function renderCrossList() {
   var list = JSON.parse(localStorage.getItem("meetos_recent") || "[]")
@@ -1921,7 +1895,7 @@ function runCrossSynthesis() {
       "Respond ONLY with valid JSON, no markdown:\n" +
       '{"recurring_blockers":["..."],"slipping_items":["items promised earlier and still open"],' +
       '"decision_reversals":["..."],"themes":["..."],"recommendation":"one paragraph for the moderator"}';
-    btn.innerHTML = '<span class="spinner"></span> ' + tier2Label() + ' cross-referencing…';
+    btn.innerHTML = '<span class="spinner"></span> Haiku cross-referencing…';
     return callClaude(tier2ModelId(), prompt, 3000);
   }).then(function (text) {
     var d = parseJSONLoose(text);
