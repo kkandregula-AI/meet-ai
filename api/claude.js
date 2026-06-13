@@ -2,8 +2,7 @@
 // Keeps ANTHROPIC_API_KEY server-side. Set it in Vercel → Project → Settings → Environment Variables.
 
 const ALLOWED_MODELS = new Set([
-  "claude-fable-5",              // Tier 2 — Deep Synthesis / cross-meeting memory
-  "claude-haiku-4-5-20251001",   // Tier 1 — Quick Pulse
+  "claude-haiku-4-5-20251001",   // all MeetOS AI runs on Haiku
 ]);
 
 const MAX_TOKENS_CAP = 4000;     // hard server-side cost ceiling
