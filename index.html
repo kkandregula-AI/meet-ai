@@ -211,6 +211,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
 .modal h3{font-size:16px;margin-bottom:6px}
 .modal p{font-size:13px;color:var(--dim);margin-bottom:14px}
 @media(min-width:700px){.modal-bg{align-items:center}.modal{border-radius:18px;max-width:480px}}
+  .pcell.rec .pname { color: #ff5c5c; font-weight: 700; }
+  .recdot { position:absolute; top:-2px; right:-2px; width:11px; height:11px; border-radius:50%;
+            background:#ff5c5c; border:2px solid var(--bg,#0b0f1a); animation: recpulse 1s infinite; }
+  .pcell { position: relative; }
+  @keyframes recpulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 </style>
 </head>
 <body>
@@ -310,6 +315,9 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
         <span style="margin-left:auto;font-size:11px;color:var(--faint)">transcript shows English</span>
       </div>
       <div class="notice warn" id="langNote" style="display:none;margin:10px 16px 0;font-size:12px"></div>
+      <div id="ownMicBanner" style="margin:10px 16px 0;padding:11px 14px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);border-radius:11px;font-size:12.5px;line-height:1.55;color:var(--amber)">
+        👉 <b>Each phone records its own speaker.</b> Tap <b>Record</b> on <u>your</u> device so your words enter the shared transcript — MeetOS transcribes locally and does not stream audio between phones.
+      </div>
       <div class="scroll" id="transcriptScroll">
         <div class="empty" id="transcriptEmpty">No transcript yet.<br><b>Tap Record</b> — speech stays free, no tokens spent.</div>
         <div id="transcriptList"></div>
@@ -598,14 +606,35 @@ function renderPStrip() {
   var seen = {};
   for (var uid in S.participants) {
     people.push({ uid: uid, name: S.participants[uid].name,
-                  role: S.participants[uid].role, avatar: S.participants[uid].avatar });
+                  role: S.participants[uid].role, avatar: S.participants[uid].avatar,
+                  recording: S.participants[uid].recording });
     seen[uid] = true;
   }
-  if (!seen[S.uid]) people.unshift({ uid: S.uid, name: S.name, role: S.role, avatar: MY_AVATAR });
+  if (!seen[S.uid]) people.unshift({ uid: S.uid, name: S.name, role: S.role, avatar: MY_AVATAR, recording: S.recOn });
+  var anyRec = false;
   strip.innerHTML = people.map(function (p) {
-    return '<div class="pcell">' + avatarHTML(p) +
+    var rec = (p.uid === S.uid) ? S.recOn : !!p.recording;
+    if (rec) anyRec = true;
+    var dot = rec ? '<span class="recdot" title="Recording now"></span>' : "";
+    return '<div class="pcell' + (rec ? ' rec' : '') + '">' + avatarHTML(p) + dot +
       '<div class="pname">' + esc(p.uid === S.uid ? "You" : p.name) + "</div></div>";
   }).join("");
+  // Moderator hint: nobody but me is recording
+  var hint = $("micHint");
+  if (S.role === "moderator" && people.length > 1) {
+    var others = people.filter(function (p) { return p.uid !== S.uid; });
+    var othersRec = others.some(function (p) { return !!p.recording; });
+    if (!othersRec) {
+      if (!hint) {
+        hint = document.createElement("div");
+        hint.id = "micHint";
+        hint.style.cssText = "margin:8px 16px 0;padding:9px 12px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);border-radius:10px;font-size:12px;color:var(--amber)";
+        var ps = $("pstrip"); if (ps && ps.parentNode) ps.parentNode.insertBefore(hint, ps.nextSibling);
+      }
+      hint.style.display = "block";
+      hint.innerHTML = "⚠️ Only you are recording. Ask others to tap <b>Record</b> on their own phones so their speech is captured.";
+    } else if (hint) { hint.style.display = "none"; }
+  } else if (hint) { hint.style.display = "none"; }
 }
 
 /* ============================================================
@@ -676,6 +705,50 @@ function createRoom() {
       title: title, pin: pin, moderator: S.uid, createdAt: Date.now()
     });
   } else { requireFirebase(); }
+  // Prompt the moderator to invite participants immediately
+  setTimeout(function () { showInviteCard(code, title, pin); }, 400);
+}
+function showInviteCard(code, title, pin) {
+  var existing = $("inviteCard"); if (existing) existing.remove();
+  var card = document.createElement("div");
+  card.id = "inviteCard";
+  card.className = "notice";
+  card.style.cssText = "margin:12px 0;padding:16px;border:1px solid rgba(167,139,250,.4);background:rgba(167,139,250,.08);border-radius:14px";
+  card.innerHTML =
+    '<div style="font-weight:700;font-size:15px;margin-bottom:4px">Room ready — invite your team</div>' +
+    '<div style="font-size:13px;color:var(--dim);margin-bottom:12px">Share the code &amp; PIN. Each participant must <b>record on their own phone</b> for their words to enter the transcript.</div>' +
+    '<div style="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap">' +
+      '<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em">Code</div>' +
+      '<div class="mono" style="font-size:22px;font-weight:800;color:var(--fable);letter-spacing:.1em">' + code + '</div></div>' +
+      '<div><div style="font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.06em">PIN</div>' +
+      '<div class="mono" style="font-size:22px;font-weight:800;color:var(--amber);letter-spacing:.1em">' + pin + '</div></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">' +
+      '<button class="btn btn-ghost" style="background:rgba(37,211,102,.12);color:#25D366;border-color:rgba(37,211,102,.3)" onclick="inviteVia(\'wa\',\'' + code + '\',\'' + pin + '\')">WhatsApp</button>' +
+      '<button class="btn btn-ghost" onclick="inviteVia(\'share\',\'' + code + '\',\'' + pin + '\')">Share</button>' +
+      '<button class="btn btn-ghost" onclick="inviteVia(\'copy\',\'' + code + '\',\'' + pin + '\')">Copy</button>' +
+    '</div>';
+  var head = document.querySelector("#room .room-head");
+  if (head && head.parentNode) head.parentNode.insertBefore(card, head.nextSibling);
+}
+function inviteText(code, pin) {
+  var title = $("roomTitle") ? $("roomTitle").textContent : "MeetOS meeting";
+  return "Join my MeetOS meeting!\n\n" +
+         "Topic: " + title + "\n" +
+         "Room Code: " + code + "\n" +
+         "PIN: " + pin + "\n\n" +
+         "Open MeetOS \u2192 Join a room \u2192 enter the code + PIN.\n" + location.href;
+}
+function inviteVia(method, code, pin) {
+  var text = inviteText(code, pin);
+  if (method === "wa") {
+    window.open("https://wa.me/?text=" + encodeURIComponent(text), "_blank");
+  } else if (method === "share") {
+    if (navigator.share) navigator.share({ title: "MeetOS Invite", text: text }).catch(function(){});
+    else { copyText(text); toast("Invite copied"); }
+  } else {
+    copyText(text); toast("Invite copied — paste anywhere");
+  }
 }
 function joinRoom() {
   var name = $("joinName").value.trim(),
@@ -692,6 +765,7 @@ function joinRoom() {
   });
 }
 function enterRoom(code, title, pin, name) {
+  var _ic = $("inviteCard"); if (_ic) _ic.remove();
   S.room = code; S.pin = pin; S.name = name; S.ended = false;
   S.transcript = []; S.chat = []; S.actions = {}; S.participants = {};
   var oldWrap = $("wrapUp"); if (oldWrap) oldWrap.remove();
@@ -958,9 +1032,32 @@ function toggleRec() { S.recOn ? stopRec() : startRec(); }
 function startRec() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast("Speech recognition not supported in this browser"); return; }
+  S.recOn = true; S._recAnnounced = false; S._recRestarts = 0;
+  spawnRecognizer(SR);
+  $("recPill").classList.add("live"); $("recLabel").textContent = "Live";
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/participants/" + S.uid + "/recording").set(true);
+  // Keep the screen awake so iOS/Android don't suspend the mic
+  if ("wakeLock" in navigator && !S._wakeLock) {
+    navigator.wakeLock.request("screen").then(function (w) {
+      S._wakeLock = w;
+      w.addEventListener("release", function () { S._wakeLock = null; });
+    }).catch(function () {});
+  }
+  // Re-acquire wake lock if the tab was backgrounded and returns
+  if (!S._visHooked) {
+    S._visHooked = true;
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && S.recOn && "wakeLock" in navigator && !S._wakeLock) {
+        navigator.wakeLock.request("screen").then(function (w) { S._wakeLock = w; }).catch(function () {});
+      }
+    });
+  }
+}
+function spawnRecognizer(SR) {
   var rec = new SR();
   rec.continuous = true; rec.interimResults = true; rec.lang = MY_LANG;
   rec.onresult = function (e) {
+    S._recRestarts = 0;                       // healthy session resets backoff
     var interim = "";
     for (var i = e.resultIndex; i < e.results.length; i++) {
       var txt = e.results[i][0].transcript;
@@ -972,31 +1069,50 @@ function startRec() {
   rec.onstart = function () {
     if (!S._recAnnounced) { toast("Mic listening (" + MY_LANG + ") — speak now"); S._recAnnounced = true; }
   };
-  rec.onend = function () { if (S.recOn) { try { rec.start(); } catch (e) {} } };
+  // Restart on ANY end while recOn is true, with capped backoff to avoid tight crash-loops
+  rec.onend = function () {
+    if (!S.recOn) return;
+    S._recRestarts = (S._recRestarts || 0) + 1;
+    var delay = Math.min(250 * S._recRestarts, 2000);   // 250ms → 2s ceiling
+    if (S._recRestarts > 40) {                            // ~too many failures, give up cleanly
+      toast("Mic stopped after repeated dropouts — tap Record to resume");
+      stopRec(); return;
+    }
+    clearTimeout(S._recTimer);
+    S._recTimer = setTimeout(function () {
+      if (!S.recOn) return;
+      try { rec.start(); }
+      catch (e) { try { spawnRecognizer(SR); } catch (e2) {} }
+    }, delay);
+  };
   rec.onerror = function (e) {
     if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-      toast("Microphone permission denied"); stopRec();
+      toast("Microphone permission denied — enable it in browser settings"); stopRec();
     } else if (e.error === "language-not-supported") {
-      toast("This browser can't recognize " + MY_LANG + " — try English/Hindi, or use Android Chrome for Telugu");
+      toast("This browser can't recognize " + MY_LANG + " — try English/Hindi, or Android Chrome for Telugu");
       stopRec();
-    } else if (e.error === "audio-capture") {
-      toast("No mic audio — close other apps using the microphone");
-    } else if (e.error === "network") {
-      toast("Speech service network error — retrying…");
     }
+    // "no-speech", "aborted", "audio-capture", "network" → let onend handle the restart silently
   };
-  try { rec.start(); } catch (e) { toast("Could not start microphone"); return; }
-  S.recognition = rec; S.recOn = true; S._recAnnounced = false;
-  $("recPill").classList.add("live"); $("recLabel").textContent = "Live";
+  try { rec.start(); }
+  catch (e) {
+    // start() throws if a previous instance is still alive; recycle on next tick
+    setTimeout(function () { if (S.recOn) spawnRecognizer(SR); }, 300);
+  }
+  S.recognition = rec;
 }
 function stopRec() {
   S.recOn = false;
+  clearTimeout(S._recTimer);
   if (S.recognition) { try { S.recognition.stop(); } catch (e) {} S.recognition = null; }
+  if (S._wakeLock) { try { S._wakeLock.release(); } catch (e) {} S._wakeLock = null; }
+  if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/participants/" + S.uid + "/recording").set(false);
   showInterim("");
   $("recPill").classList.remove("live"); $("recLabel").textContent = "Record";
 }
 function pushTranscript(text) {
   if (!text) return;
+  var _omb = $("ownMicBanner"); if (_omb) _omb.style.display = "none";
   var line = { speaker: S.name, text: text, ts: nowTs(), at: Date.now(), lang: MY_LANG };
   if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/transcript").push(line);
   else onTranscriptLine(line, "local" + Date.now() + Math.random().toString(36).slice(2, 5));
