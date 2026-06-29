@@ -949,6 +949,43 @@ function onMeetingEnded(at) {
   showPane("intel", document.querySelector(".tab.t-intel"));
   toast("Meeting ended" + (isMod ? " — wrap-up ready" : ""));
 }
+// Pull the authoritative, complete transcript from Firebase (all participants),
+// merge anything missing into S.transcript, then run the callback. Falls back to
+// local S.transcript if offline / no Firebase.
+function withFullTranscript(cb) {
+  if (!FIREBASE_OK || !S.room) { cb(); return; }
+  toast("Fetching full transcript from all participants\u2026");
+  db.ref("rooms/" + S.room + "/transcript").once("value").then(function (snap) {
+    var all = snap.val() || {};
+    var keys = Object.keys(all);
+    var before = S.transcript.length;
+    if (keys.length) {
+      // Rebuild S.transcript from the authoritative server copy (all speakers),
+      // ordered by Firebase push key which is chronological.
+      keys.sort();
+      S.transcript = keys.map(function (k) { var l = all[k]; l.key = k; return l; });
+      // Redraw the transcript list DOM from scratch
+      var listEl = $("transcriptList");
+      if (listEl) {
+        listEl.innerHTML = "";
+        S.transcript.forEach(function (l) {
+          var div = document.createElement("div");
+          div.id = "tl-" + l.key;
+          renderTLine(div, l);
+          listEl.appendChild(div);
+        });
+        if (S.transcript.length) $("transcriptEmpty").style.display = "none";
+      }
+      var added = S.transcript.length - before;
+      if (added > 0) toast("Loaded " + added + " more line" + (added === 1 ? "" : "s") + " from participants");
+    }
+    cb();
+  }).catch(function () {
+    toast("Couldn't refresh from server \u2014 exporting what's on this device");
+    cb();
+  });
+}
+
 function transcriptMarkdown() {
   var out = "# Transcript — " + $("roomTitle").textContent + "\n";
   out += "_MeetOS · room " + S.room + " · " + new Date().toLocaleString() + "_\n\n";
@@ -968,6 +1005,9 @@ function transcriptMarkdown() {
   return out;
 }
 function downloadTranscript() {
+  withFullTranscript(function () { _downloadTranscript(); });
+}
+function _downloadTranscript() {
   var md = transcriptMarkdown();
   var fname = "meetos-" + (S.room || "meeting") + "-transcript.md";
   var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -1933,6 +1973,9 @@ function pdfParticipants() {
 function exportSynthesisPDF() {
   var syn = window._lastSynthesis;
   if (!syn) { toast("Run Deep Synthesis first"); return; }
+  withFullTranscript(function () { _exportSynthesisPDF(syn); });
+}
+function _exportSynthesisPDF(syn) {
   toast("Building PDF…");
   var people = pdfParticipants();
   Promise.all([loadJsPDF()].concat(people.map(function (p) { return circleAvatarPNG(p, 128); })))
