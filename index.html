@@ -273,11 +273,11 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
         <h2 id="roomTitle">Room</h2>
         <div class="sub">Code <span class="mono" id="roomCode">——</span> · <span id="partCount">1</span> in room · <span id="roleTag">participant</span></div>
       </div>
-      <button class="rec-pill" id="recPill" onclick="toggleRec()">
+      <button class="rec-pill" id="recPill" onclick="toggleRec()" aria-label="Record your microphone">
         <span class="rec-dot"></span><span id="recLabel">Record</span>
       </button>
       <button class="icon-btn" id="videoBtn" onclick="toggleVideo()" aria-label="Toggle video">🎥</button>
-      <button class="icon-btn" id="endBtn" onclick="endMeeting()" aria-label="End meeting" style="display:none;border-color:rgba(255,92,92,.5)">⏹</button>
+      <button class="rec-pill" id="endBtn" onclick="endMeeting()" aria-label="End meeting" style="display:none;border-color:rgba(255,92,92,.5);color:#ff5c5c"><span id="endLabel">End meeting</span></button>
       <button class="icon-btn" onclick="openSettings()" aria-label="AI settings">⚙</button>
       <button class="icon-btn" onclick="shareRoom()" aria-label="Share room">⇪</button>
     </div>
@@ -406,6 +406,8 @@ input,textarea,select{font-family:inherit;font-size:15px;color:var(--text)}
     <h3>⚙ AI settings</h3>
     <p><b>Only the moderator needs a key</b> — participants get all AI results synced for free. English-only meetings need no key at all for transcripts; the key powers translation of other languages, Quick Pulse and Deep Synthesis. The key is stored only in this browser (localStorage) and sent straight to the API or your proxy — never to anyone else.</p>
     <div class="field"><input id="setKey" type="password" placeholder="sk-ant-… (leave blank to use server key)" autocomplete="off"></div>
+    <div id="setKeyNote" style="display:none;font-size:12px;margin-top:6px"></div>
+    <p style="font-size:11.5px;color:var(--faint);margin-top:8px">Get a key at console.anthropic.com → API Keys. MeetOS AI runs on Claude Haiku (low cost). Your key never leaves this device except to call the API.</p>
     <div style="display:flex;gap:8px;margin-top:16px">
       <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
       <button class="btn btn-fable" onclick="saveSettings()">Save</button>
@@ -484,11 +486,22 @@ function tier2ModelId() { return CONFIG.MODEL_HAIKU; }
 function tier2Label() { return "Haiku"; }
 function openSettings() {
   $("setKey").value = SETTINGS.userKey;
+  var note = $("setKeyNote");
+  if (note) {
+    if (keyAvailable()) {
+      note.style.display = "block"; note.style.color = "var(--teal,#0ECFB1)";
+      note.textContent = SETTINGS.userKey ? "\u2713 Your key is set \u2014 AI analysis enabled." : "\u2713 Server key active \u2014 AI analysis enabled.";
+    } else {
+      note.style.display = "block"; note.style.color = "#ffb020";
+      note.textContent = "No key yet \u2014 add one to enable Quick Pulse & Deep Synthesis.";
+    }
+  }
   $("settingsModal").classList.add("show");
 }
 function saveSettings() {
   SETTINGS.userKey = $("setKey").value.trim();
   localStorage.setItem("meetos_user_key", SETTINGS.userKey);
+  if (typeof refreshKeyBanner === "function") refreshKeyBanner();
   $("settingsModal").classList.remove("show");
   refreshTierBadges();
   updateTokenEstimate();
@@ -869,6 +882,24 @@ function applyRolePermissions() {
   $("synthLaunch").querySelector("p").innerHTML = isMod
     ? "Claude Haiku reads the full transcript + chat and returns decisions with owners, action items with <em>confidence ratings</em>, open questions and unresolved tension. Ambiguous ownership is flagged low-confidence instead of invented."
     : "Only the room moderator can run Deep Synthesis (token cost control). Results appear here for everyone.";
+  refreshKeyBanner();
+}
+function refreshKeyBanner() {
+  var id = "keyBanner";
+  var existing = $(id);
+  var needed = (S.role === "moderator") && !keyAvailable();
+  if (!needed) { if (existing) existing.style.display = "none"; return; }
+  var banner = existing;
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = id;
+    banner.style.cssText = "margin:0 16px 12px;padding:11px 14px;border:1px solid rgba(255,176,32,.4);background:rgba(255,176,32,.1);border-radius:11px;font-size:12.5px;line-height:1.5;color:#ffb020;cursor:pointer";
+    banner.onclick = openSettings;
+    var intel = $("pane-intel");
+    if (intel) intel.insertBefore(banner, intel.firstChild);
+  }
+  banner.style.display = "block";
+  banner.innerHTML = "\uD83D\uDD11 <b>AI needs a key.</b> Tap here to add your Anthropic (Haiku) API key in Settings \u2014 then Quick Pulse &amp; Analyse meeting will work.";
 }
 function shareRoom() {
   var text = "Join my MeetOS room \"" + $("roomTitle").textContent + "\" — code " +
@@ -938,12 +969,36 @@ function transcriptMarkdown() {
 }
 function downloadTranscript() {
   var md = transcriptMarkdown();
-  var a = document.createElement("a");
-  a.href = "data:text/markdown;charset=utf-8," + encodeURIComponent(md);
-  a.download = "meetos-" + (S.room || "meeting") + "-transcript.md";
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  copyText(md);
-  toast("Transcript downloading — also copied to clipboard");
+  var fname = "meetos-" + (S.room || "meeting") + "-transcript.md";
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  // On iOS Safari, data: downloads silently fail — use the native share sheet
+  // so the user can pick "Save to Files" and SEE where it goes.
+  if (isIOS && navigator.share && navigator.canShare) {
+    var file = new File([md], fname, { type: "text/markdown" });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: "Meeting transcript" })
+        .then(function () { toast("Choose Save to Files to store it"); })
+        .catch(function () { copyText(md); toast("Transcript copied to clipboard"); });
+      return;
+    }
+  }
+
+  // Desktop / Android: real Blob download with revoke
+  try {
+    var blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    copyText(md);
+    toast("Saved \u201C" + fname + "\u201D to your Downloads \u00B7 also copied");
+  } catch (e) {
+    copyText(md);
+    toast("Couldn\u2019t save file \u2014 transcript copied to clipboard instead");
+  }
 }
 
 /* ============================================================
@@ -963,7 +1018,35 @@ function showPane(name, el) {
    ============================================================ */
 var MY_LANG = localStorage.getItem("meetos_lang") || "en-IN";
 function keyAvailable() {
-  return !!SETTINGS.userKey || CONFIG.SERVER_HAS_KEY;
+  // A usable key path exists if the user supplied their own key (BYOK),
+  // or a proxy is configured AND the server holds a key.
+  if (SETTINGS.userKey) return true;
+  if (CONFIG.PROXY_URL && CONFIG.SERVER_HAS_KEY) return true;
+  return false;
+}
+// Returns true if good to call AI; otherwise shows a clear prompt and opens Settings.
+function ensureKeyOrPrompt() {
+  if (keyAvailable()) return true;
+  toast("Add your Anthropic (Haiku) API key in \u2699 Settings to run AI analysis");
+  if (typeof openSettings === "function") {
+    setTimeout(openSettings, 300);
+    // Highlight the key field so it's obvious what to fill
+    setTimeout(function () {
+      var f = $("setKey");
+      if (f) {
+        f.focus();
+        f.style.borderColor = "#ff5c5c";
+        f.placeholder = "Paste your Anthropic API key (sk-ant-...) to enable AI";
+      }
+      var note = $("setKeyNote");
+      if (note) {
+        note.style.display = "block";
+        note.style.color = "#ff5c5c";
+        note.textContent = "Deep Synthesis and Quick Pulse need this key. It stays only on this device.";
+      }
+    }, 400);
+  }
+  return false;
 }
 function setLang(code) {
   var isEn = code.indexOf("en") === 0;
@@ -1034,7 +1117,7 @@ function startRec() {
   if (!SR) { toast("Speech recognition not supported in this browser"); return; }
   S.recOn = true; S._recAnnounced = false; S._recRestarts = 0;
   spawnRecognizer(SR);
-  $("recPill").classList.add("live"); $("recLabel").textContent = "Live";
+  $("recPill").classList.add("live"); $("recLabel").textContent = "Stop recording";
   if (FIREBASE_OK && S.room) db.ref("rooms/" + S.room + "/participants/" + S.uid + "/recording").set(true);
   // Keep the screen awake so iOS/Android don't suspend the mic
   if ("wakeLock" in navigator && !S._wakeLock) {
@@ -1566,6 +1649,7 @@ function translateTick() {
 function runQuickPulse() {
   if (S.role !== "moderator") { toast("The moderator runs AI — results appear here for everyone"); return; }
   if (!S.transcript.length) { toast("Nothing to summarize yet"); return; }
+  if (!ensureKeyOrPrompt()) return;
   var recent = transcriptText(S.transcript).slice(-4000);
   var prompt = "You summarize live meetings. From this transcript window produce:\n" +
     "1. synopsis: a plain 2-3 sentence summary of where the meeting stands\n" +
@@ -1639,6 +1723,7 @@ function buildSynthesisPrompt(tText, cText, names) {
 function runDeepSynthesis() {
   if (S.role !== "moderator") { toast("Moderator only"); return; }
   if (S.transcript.length < 3) { toast("Transcript too short for deep synthesis"); return; }
+  if (!ensureKeyOrPrompt()) return;
   var tText = transcriptText(S.transcript);
   var cText = S.chat.map(function (c) { return c.who + ": " + c.text; }).join("\n");
   var names = [S.name];
